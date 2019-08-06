@@ -304,20 +304,22 @@ class Db(object):
         return self.exec_sql(q)[0][0]
 
 
-    def group_capabilities(self, group_name):
+    def group_capabilities(self, group_name, grants=True):
         """
         Get the capabilities that the group enables access to.
 
         Parameters
         ----------
         group_name: str
+        grants: bool, default=True (also show capability resource grants)
 
         Returns
         -------
         dict
 
         """
-        q = "".format()
+        g = 't' if grants else 'f'
+        q = "select group_capabilities('{0}', '{1}')".format(group_name, g)
         return self.exec_sql(q)[0][0]
 
 
@@ -334,5 +336,5 @@ class Db(object):
         dict
 
         """
-        q = "".format()
+        q = "select capability_grants('{0}')".format(capability_name)
         return self.exec_sql(q)[0][0]
