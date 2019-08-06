@@ -150,6 +150,40 @@ class Db(object):
         return self.exec_sql(q)[0][0]
 
 
+    def user_groups(self, user_name):
+        """
+        Get the group memberships for a user.
+
+        Parameters
+        ----------
+        user_name: str
+
+        Returns
+        -------
+        dict
+
+        """
+        pass
+
+
+    def user_capabilities(self, user_name, grants=True):
+        """
+        Get the capabilities (access) for a user via its group
+        memberships.
+
+        Parameters
+        ----------
+        user_name: str
+        grants: bool, default=True (also show capability resource grants)
+
+        Returns
+        -------
+        dict
+
+        """
+        pass
+
+
     def group_members(self, group_name):
         """
         Get the membership graph of group_name.
@@ -166,3 +200,105 @@ class Db(object):
         q = "select group_members('{0}')".format(group_name)
         return self.exec_sql(q)[0][0]
 
+
+    def group_moderators(self, group_name):
+        """
+        Get the moderators for a group.
+
+        Parameters
+        ----------
+        group_name: str
+
+        Returns
+        -------
+        dict
+
+        """
+        pass
+
+
+    def group_member_add(self, group_name, member):
+        """
+        Add a new member to a group. A new member can be identified
+        by either:
+
+        1) person_id
+        2) user_name
+        3) group (person group, user group, or generic group)
+
+        If a new member is identified using #1, then pg-iam
+        will find their person group, and add it as a member.
+        If #2 is used, then pg-iam will find the user group and
+        add it as a member. In case #3, if a person or user group
+        is given, then it is functionally equivalent to #1 and #2.
+        When a generic group is provided, then the group becomes
+        a member of another group (along with its members, transitively).
+
+        Note: internally, pg-iam adds persons to groups via their
+        person group, and users to groups via their user groups.
+
+        Parameters
+        ----------
+        group_name: str, the group to which the member should be added
+        member: str, the new member
+
+        Returns
+        -------
+        dict
+
+        """
+        pass
+
+
+    def group_member_remove(self. group_name, member):
+        """
+        Remove a member from a group. A member can be identified
+        by either:
+
+        1) person_id
+        2) user_name
+        3) group (person group, user group, or generic group)
+
+        Parameters
+        ----------
+        group_name: str, the group from which the member should be removed
+        member: str, the existing member to remove
+
+        Returns
+        -------
+        dict
+
+        """
+        pass
+
+
+    def group_capabilities(self, group_name):
+        """
+        Get the capabilities that the group enables access to.
+
+        Parameters
+        ----------
+        group_name: str
+
+        Returns
+        -------
+        dict
+
+        """
+        pass
+
+
+    def capability_grants(self, capability_name):
+        """
+        Get the resource grants associated with a specific capability.
+
+        Parameters
+        ----------
+        capability_name: str
+
+        Returns
+        -------
+        dict
+
+        """
+        pass
