@@ -5,6 +5,7 @@ from sqlalchemy.pool import QueuePool
 
 from iam.pgiam import Db
 
+
 def test_pgiam():
     user = 'tsd_backend_utv_user'
     pw = ''
@@ -13,6 +14,7 @@ def test_pgiam():
     dburi = ''.join(['postgresql://', user, ':', pw, '@', host, ':5432/', db])
     engine = create_engine(dburi, poolclass=QueuePool)
     db = Db(engine)
+    print(type(db.tables.persons))
     pid = db.exec_sql('select person_id from persons limit 1', {})[0][0]
     print(pid)
     print(db.person_groups(pid))
@@ -20,7 +22,10 @@ def test_pgiam():
     print(db.person_access(pid))
     user_name = db.exec_sql('select user_name from users where person_id=:pid', {'pid': pid})[0][0]
     print(db.user_groups(user_name))
+    print(db.user_capabilities(user_name))
     print(db.group_members('p11-export-group'))
+    print(db.group_moderators('p11-export-group'))
+
 
 if __name__ == '__main__':
     test_pgiam()

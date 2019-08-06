@@ -1,5 +1,6 @@
 
 from contextlib import contextmanager
+from collections import namedtuple
 
 from sqlalchemy import MetaData
 from sqlalchemy.orm import sessionmaker
@@ -59,13 +60,16 @@ class Db(object):
         self.engine = engine
         self.meta = MetaData()
         self.meta.reflect(bind=engine)
-        self.persons = self.meta.tables['persons']
-        self.users = self.meta.tables['users']
-        self.groups = self.meta.tables['groups']
-        self.group_memberships = self.meta.tables['group_memberships']
-        self.group_moderators = self.meta.tables['group_moderators']
-        self.capabilities_http = self.meta.tables['capabilities_http']
-        self.capabilities_http_grants = self.meta.tables['capabilities_http_grants']
+        self.tables = namedtuple('tables', ['persons', 'users', 'groups',
+                                            'group_memberships', 'group_moderators',
+                                            'capabilities_http', 'capabilities_http_grants'])
+        self.tables.persons = self.meta.tables['persons']
+        self.tables.users = self.meta.tables['users']
+        self.tables.groups = self.meta.tables['groups']
+        self.tables.group_memberships = self.meta.tables['group_memberships']
+        self.tables.group_moderators = self.meta.tables['group_moderators']
+        self.tables.capabilities_http = self.meta.tables['capabilities_http']
+        self.tables.capabilities_http_grants = self.meta.tables['capabilities_http_grants']
 
 
     def exec_sql(self, sql, params={}):
@@ -182,7 +186,8 @@ class Db(object):
         dict
 
         """
-        q = "".format()
+        g = 't' if grants else 'f'
+        q = "select user_capabilities('{0}', '{1}')".format(user_name, g)
         return self.exec_sql(q)[0][0]
 
 
@@ -216,7 +221,7 @@ class Db(object):
         dict
 
         """
-        q = "".format()
+        q = "select group_moderators('{0}')".format(group_name)
         return self.exec_sql(q)[0][0]
 
 
