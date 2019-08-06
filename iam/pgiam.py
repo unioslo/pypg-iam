@@ -76,7 +76,7 @@ class Db(object):
 
     # for insert, update and delete plain parameterised SQL is also just fine
     vals = {'g': 'g1', 'm': 'g2'}
-    db.exec_sql('insert into group_moderators values (:g, "m")', vals, fetch=False)
+    db.exec_sql('insert into group_moderators values (:g, :m)', vals, fetch=False)
 
     """
 
