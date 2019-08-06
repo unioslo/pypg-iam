@@ -16,11 +16,10 @@ def test_pgiam():
     db = Db(engine)
     print(type(db.tables.persons))
     pid = db.exec_sql('select person_id from persons limit 1', {})[0][0]
-    print(pid)
+    user_name = db.exec_sql('select user_name from users where person_id=:pid', {'pid': pid})[0][0]
     print(db.person_groups(pid))
     print(db.person_capabilities(pid))
     print(db.person_access(pid))
-    user_name = db.exec_sql('select user_name from users where person_id=:pid', {'pid': pid})[0][0]
     print(db.user_groups(user_name))
     print(db.user_capabilities(user_name))
     print(db.group_members('p11-export-group'))
