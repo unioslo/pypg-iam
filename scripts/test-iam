@@ -5,14 +5,18 @@ from sqlalchemy.pool import QueuePool
 
 from iam.pgiam import Db
 
-user = 'tsd_backend_utv_user'
-pw = ''
-host = 'localhost'
-db = 'tsd_idp'
-dburi = ''.join(['postgresql://', user, ':', pw, '@', host, ':5432/', db])
-engine = create_engine(dburi, poolclass=QueuePool)
-db = Db(engine)
-print(db.exec_sql('select * from persons', {}))
-print(db.group_members('p11-export-group'))
-print(type(db.persons))
-print(type(db.users))
+def test_pgiam():
+    user = 'tsd_backend_utv_user'
+    pw = ''
+    host = 'localhost'
+    db = 'tsd_idp'
+    dburi = ''.join(['postgresql://', user, ':', pw, '@', host, ':5432/', db])
+    engine = create_engine(dburi, poolclass=QueuePool)
+    db = Db(engine)
+    pid = db.exec_sql('select person_id from persons limit 1', {})[0][0]
+    print(pid)
+    print(db.person_groups(pid))
+    print(db.group_members('p11-export-group'))
+
+if __name__ == '__main__':
+    test_pgiam()

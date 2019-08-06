@@ -3,7 +3,6 @@ from contextlib import contextmanager
 
 from sqlalchemy import MetaData
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.automap import automap_base
 
 
 @contextmanager
@@ -23,8 +22,36 @@ def session_scope(engine):
 class Db(object):
 
 
-    """Reflect the pgi-iam database, and provide
-    helper methods for database functions."""
+    """
+    Reflect the pgi-iam database to sqlalchemy object,
+    provide helper methods for calling database functions,
+    and executing arbitrary SQL queries.
+
+    Tables
+    ------
+    persons
+    users
+    groups
+    group_memberships
+    group_moderators
+    capabilities_http
+    capabilities_http_grants
+
+    Functions
+    ---------
+    person_groups
+    person_capabilities
+    person_access
+    user_groups
+    user_capabilities
+    group_members
+    group_moderators
+    group_member_add
+    group_member_remove
+    group_capabilities
+    capability_grants
+
+    """
 
 
     def __init__(self, engine):
@@ -66,10 +93,37 @@ class Db(object):
         return data
 
 
-    # TODO
-    # add the rest of the functions
+    def person_groups(self, person_id):
+        """
+        Get the group memberships associated with a person's
+        person group.
+
+        Parameters
+        ----------
+        person_id: str, uuid4
+
+        Returns
+        -------
+        dict
+
+        """
+        q = "select person_groups('{0}')".format(person_id)
+        return self.exec_sql(q)[0][0]
+
 
     def group_members(self, group_name):
+        """
+        Get the membership graph of group_name.
+
+        Parameters
+        ----------
+        group_name: str
+
+        Returns
+        -------
+        dict
+
+        """
         q = "select group_members('{0}')".format(group_name)
         return self.exec_sql(q)[0][0]
 
