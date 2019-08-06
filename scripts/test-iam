@@ -16,6 +16,7 @@ def test_pgiam():
     pid = db.exec_sql('select person_id from persons limit 1', {})[0][0]
     print(pid)
     print(db.person_groups(pid))
+    print(db.person_capabilities(pid))
     print(db.group_members('p11-export-group'))
 
 if __name__ == '__main__':

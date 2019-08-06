@@ -23,7 +23,7 @@ class Db(object):
 
 
     """
-    Reflect the pgi-iam database to sqlalchemy object,
+    Reflect the pgi-iam database to sqlalchemy objects,
     provide helper methods for calling database functions,
     and executing arbitrary SQL queries.
 
@@ -108,6 +108,26 @@ class Db(object):
 
         """
         q = "select person_groups('{0}')".format(person_id)
+        return self.exec_sql(q)[0][0]
+
+
+    def person_capabilities(self, person_id, grants=True):
+        """
+        Get an overview of the capabilities a person has access to
+        via their group memberships.
+
+        Parameters
+        ----------
+        person_id, str, uuid4
+        grants: bool, default=True (also show capability resource grants)
+
+        Returns
+        -------
+        dict
+
+        """
+        g = 't' if grants else 'f'
+        q = "select person_capabilities('{0}', '{1}')".format(person_id, g)
         return self.exec_sql(q)[0][0]
 
 
