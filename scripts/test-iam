@@ -17,6 +17,7 @@ def test_pgiam():
     print(pid)
     print(db.person_groups(pid))
     print(db.person_capabilities(pid))
+    print(db.person_access(pid))
     print(db.group_members('p11-export-group'))
 
 if __name__ == '__main__':

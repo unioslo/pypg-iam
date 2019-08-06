@@ -131,6 +131,25 @@ class Db(object):
         return self.exec_sql(q)[0][0]
 
 
+    def person_access(self, person_id):
+        """
+        Get an overview of all access rights the person has,
+        via their person group, and all the user accounts, and
+        user groups linked to those accounts.
+
+        Parameters
+        ----------
+        person_id, str, uuid4
+
+        Returns
+        -------
+        dict
+
+        """
+        q = "select person_access('{0}')".format(person_id)
+        return self.exec_sql(q)[0][0]
+
+
     def group_members(self, group_name):
         """
         Get the membership graph of group_name.
