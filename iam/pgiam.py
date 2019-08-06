@@ -163,7 +163,8 @@ class Db(object):
         dict
 
         """
-        pass
+        q = "select user_groups('{0}')".format(user_name)
+        return self.exec_sql(q)[0][0]
 
 
     def user_capabilities(self, user_name, grants=True):
@@ -181,7 +182,8 @@ class Db(object):
         dict
 
         """
-        pass
+        q = "".format()
+        return self.exec_sql(q)[0][0]
 
 
     def group_members(self, group_name):
@@ -214,7 +216,8 @@ class Db(object):
         dict
 
         """
-        pass
+        q = "".format()
+        return self.exec_sql(q)[0][0]
 
 
     def group_member_add(self, group_name, member):
@@ -247,10 +250,11 @@ class Db(object):
         dict
 
         """
-        pass
+        q = "".format()
+        return self.exec_sql(q)[0][0]
 
 
-    def group_member_remove(self. group_name, member):
+    def group_member_remove(self, group_name, member):
         """
         Remove a member from a group. A member can be identified
         by either:
@@ -269,7 +273,8 @@ class Db(object):
         dict
 
         """
-        pass
+        q = "".format()
+        return self.exec_sql(q)[0][0]
 
 
     def group_capabilities(self, group_name):
@@ -285,7 +290,8 @@ class Db(object):
         dict
 
         """
-        pass
+        q = "".format()
+        return self.exec_sql(q)[0][0]
 
 
     def capability_grants(self, capability_name):
@@ -301,4 +307,5 @@ class Db(object):
         dict
 
         """
-        pass
+        q = "".format()
+        return self.exec_sql(q)[0][0]
