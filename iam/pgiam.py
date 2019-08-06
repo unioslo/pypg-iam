@@ -1,4 +1,9 @@
 
+"""This package provides a Db class, which is a thin wrapper around the pg-iam
+database system. The class provides sqlalchemy objects, and instance methods
+for calling database functions."""
+
+
 from contextlib import contextmanager
 from collections import namedtuple
 
@@ -51,6 +56,23 @@ class Db(object):
     group_member_remove
     group_capabilities
     capability_grants
+
+    Example usage
+    -------------
+    engine = sqlalchemy.create_engine(...)
+    db = Db(engine)
+    query = 'select person_id from persons where name=:name'
+    pid = db.exec_sql(query, {'name': 'Catullus'})[0][0]
+    pgrps = db.person_groups(pid)
+    query = 'select user_name from users where person_id=:pid'
+    user_name = db.exec_sql(query, {'pid': pid})[0][0]
+    ugrps = db.user_groups(user_name)
+    db.group_member_add('admin', user_name)
+
+    # one can also use sqlalchemy tables for select, insert, update and delete
+    from sqlalchemy.sql import select
+    users = db.tables.users
+    results = conn.execute(select([users])).fetchall()
 
     """
 
@@ -255,7 +277,7 @@ class Db(object):
         dict
 
         """
-        q = "".format()
+        q = "select group_member_add('{0}', '{1}')".format(group_name, member)
         return self.exec_sql(q)[0][0]
 
 
@@ -278,7 +300,7 @@ class Db(object):
         dict
 
         """
-        q = "".format()
+        q = "select group_member_remove('{0}', '{1}')".format(group_name, member)
         return self.exec_sql(q)[0][0]
 
 

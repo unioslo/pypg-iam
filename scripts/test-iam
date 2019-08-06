@@ -25,6 +25,8 @@ def test_pgiam():
     print(db.user_capabilities(user_name))
     print(db.group_members('p11-export-group'))
     print(db.group_moderators('p11-export-group'))
+    print(db.group_member_add('p11-admin-group', 'p11-clinical-group'))
+    print(db.group_member_remove('p11-admin-group', 'p11-clinical-group'))
 
 
 if __name__ == '__main__':
