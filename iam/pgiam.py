@@ -94,7 +94,7 @@ class Db(object):
         self.tables.capabilities_http_grants = self.meta.tables['capabilities_http_grants']
 
 
-    def exec_sql(self, sql, params={}):
+    def exec_sql(self, sql, params={}, fetch=True):
         """
         Execute a parameterised SQL query as a prepated statement,
         fetching all results.
@@ -103,20 +103,25 @@ class Db(object):
         ----------
         sql: str
         params: dict
+        fetch: bool, set to False for insert, update and delte
 
         Example
         -------
         exec_sql('select * from persons where name=:name', {'name': 'Frank'})
         exec_sql('select * from users')
+        exec_sql('insert into mytable values (:y)', {'y': 5}, fetch=False)
 
         Returns
         -------
-        list of tuples
+        list of tuples or boolean
 
         """
+        res = True
         with session_scope(self.engine) as session:
-            data = session.execute(sql, params).fetchall()
-        return data
+            data = session.execute(sql, params)
+            if fetch:
+                res = data.fetchall()
+        return res
 
 
     def person_groups(self, person_id):

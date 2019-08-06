@@ -28,6 +28,7 @@ def test_pgiam():
     print(db.group_member_remove('p11-admin-group', 'p11-clinical-group'))
     print(db.group_capabilities('p11-admin-group'))
     print(db.capability_grants('admin'))
+    return db
 
 
 if __name__ == '__main__':
