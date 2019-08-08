@@ -59,8 +59,15 @@ class Db(object):
 
     Example usage
     -------------
-    engine = sqlalchemy.create_engine(...)
+    from sqlalchemy import create_engine
+    from sqlalchemy.pool import QueuePool
+
+    from iam.pgiam import Db, session_scope
+
+    engine = create_engine(dburi, poolclass=QueuePool)
     db = Db(engine)
+
+    # use raw sql and helper functions
     query = 'select person_id from persons where name=:name'
     pid = db.exec_sql(query, {'name': 'Catullus'})[0][0]
     pgrps = db.person_groups(pid)
@@ -68,15 +75,13 @@ class Db(object):
     user_name = db.exec_sql(query, {'pid': pid})[0][0]
     ugrps = db.user_groups(user_name)
     db.group_member_add('admin', user_name)
+    vals = {'g': 'g1', 'm': 'g2'}
+    db.exec_sql('insert into group_moderators values (:g, :m)', vals, fetch=False)
 
-    # one can also use sqlalchemy tables for select, insert, update and delete
+    # use sqlalchemy tables for select, insert, update and delete
     with session_scope(db.engine) as session:
         for person in session.query(db.tables.persons):
             print(person)
-
-    # for insert, update and delete plain parameterised SQL is also just fine
-    vals = {'g': 'g1', 'm': 'g2'}
-    db.exec_sql('insert into group_moderators values (:g, :m)', vals, fetch=False)
 
     """
 
