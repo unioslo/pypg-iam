@@ -70,9 +70,9 @@ class Db(object):
     db.group_member_add('admin', user_name)
 
     # one can also use sqlalchemy tables for select, insert, update and delete
-    from sqlalchemy.sql import select
-    users = db.tables.users
-    results = conn.execute(select([users])).fetchall()
+    with session_scope(db.engine) as session:
+        for person in session.query(db.tables.persons):
+            print(person)
 
     # for insert, update and delete plain parameterised SQL is also just fine
     vals = {'g': 'g1', 'm': 'g2'}
@@ -84,8 +84,8 @@ class Db(object):
     def __init__(self, engine):
         super(Db, self).__init__()
         self.engine = engine
-        self.meta = MetaData()
-        self.meta.reflect(bind=engine)
+        self.meta = MetaData(engine)
+        self.meta.reflect()
         self.tables = namedtuple('tables', ['persons', 'users', 'groups',
                                             'group_memberships', 'group_moderators',
                                             'capabilities_http', 'capabilities_http_grants'])
