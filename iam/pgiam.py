@@ -27,7 +27,6 @@ def session_scope(engine):
 
 class Db(object):
 
-
     """
     Reflect the pgi-iam database to sqlalchemy objects,
     provide helper methods for calling database functions,
@@ -83,8 +82,44 @@ class Db(object):
         for person in session.query(db.tables.persons):
             print(person)
 
-    """
+    engine = create_engine(database)
+    metadata = MetaData(engine)
+    metadata.reflect()
+    Session = sessionmaker(bind=engine)
 
+    session = Session()
+
+
+    persons = metadata.tables['persons']
+
+    # How to Insert
+    insert = persons.insert().values(full_name="Milen Kouylekov").execute()
+
+    # How to Count
+    persons.count().execute().next()[0]
+
+    # How to Search
+    persons.select().where(persons.columns.full_name == "Milen Kouylekov").execute().next()
+
+    # Update
+    persons.update().where(persons.columns.full_name == 'Milen Kouylekov').values(full_name='TSD Admin').execute()
+
+    # Connection vs Execute
+    conn = engine.connect()
+    stmt = persons.update().where(persons.columns.full_name == 'Milen Kouylekov').values(full_name='TSD Admin')
+    conn.execute(stmt)
+
+    # Delete
+    persons.delete().where(persons.columns.full_name == 'TSD Admin').execute() 
+
+    # Next vs fetch One
+    persons.select().where(persons.columns.full_name == 'TSD Admin').execute().next() Throws StopIteration if not found
+
+    persons.select().where(persons.columns.full_name == 'TSD Admin').execute().fetch_one() returns None if not found
+
+
+
+    """
 
     def __init__(self, engine):
         super(Db, self).__init__()
@@ -101,7 +136,6 @@ class Db(object):
         self.tables.group_moderators = self.meta.tables['group_moderators']
         self.tables.capabilities_http = self.meta.tables['capabilities_http']
         self.tables.capabilities_http_grants = self.meta.tables['capabilities_http_grants']
-
 
     def exec_sql(self, sql, params={}, fetch=True):
         """
@@ -132,7 +166,6 @@ class Db(object):
                 res = data.fetchall()
         return res
 
-
     def person_groups(self, person_id):
         """
         Get the group memberships associated with a person's
@@ -149,7 +182,6 @@ class Db(object):
         """
         q = "select person_groups('{0}')".format(person_id)
         return self.exec_sql(q)[0][0]
-
 
     def person_capabilities(self, person_id, grants=True):
         """
@@ -170,7 +202,6 @@ class Db(object):
         q = "select person_capabilities('{0}', '{1}')".format(person_id, g)
         return self.exec_sql(q)[0][0]
 
-
     def person_access(self, person_id):
         """
         Get an overview of all access rights the person has,
@@ -189,7 +220,6 @@ class Db(object):
         q = "select person_access('{0}')".format(person_id)
         return self.exec_sql(q)[0][0]
 
-
     def user_groups(self, user_name):
         """
         Get the group memberships for a user.
@@ -205,7 +235,6 @@ class Db(object):
         """
         q = "select user_groups('{0}')".format(user_name)
         return self.exec_sql(q)[0][0]
-
 
     def user_capabilities(self, user_name, grants=True):
         """
@@ -226,7 +255,6 @@ class Db(object):
         q = "select user_capabilities('{0}', '{1}')".format(user_name, g)
         return self.exec_sql(q)[0][0]
 
-
     def group_members(self, group_name):
         """
         Get the membership graph of group_name.
@@ -243,7 +271,6 @@ class Db(object):
         q = "select group_members('{0}')".format(group_name)
         return self.exec_sql(q)[0][0]
 
-
     def group_moderators(self, group_name):
         """
         Get the moderators for a group.
@@ -259,7 +286,6 @@ class Db(object):
         """
         q = "select group_moderators('{0}')".format(group_name)
         return self.exec_sql(q)[0][0]
-
 
     def group_member_add(self, group_name, member):
         """
@@ -294,7 +320,6 @@ class Db(object):
         q = "select group_member_add('{0}', '{1}')".format(group_name, member)
         return self.exec_sql(q)[0][0]
 
-
     def group_member_remove(self, group_name, member):
         """
         Remove a member from a group. A member can be identified
@@ -317,7 +342,6 @@ class Db(object):
         q = "select group_member_remove('{0}', '{1}')".format(group_name, member)
         return self.exec_sql(q)[0][0]
 
-
     def group_capabilities(self, group_name, grants=True):
         """
         Get the capabilities that the group enables access to.
@@ -335,7 +359,6 @@ class Db(object):
         g = 't' if grants else 'f'
         q = "select group_capabilities('{0}', '{1}')".format(group_name, g)
         return self.exec_sql(q)[0][0]
-
 
     def capability_grants(self, capability_name):
         """
