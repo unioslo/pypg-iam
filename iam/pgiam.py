@@ -100,7 +100,7 @@ class Db(object):
 
     # Execute
     with session_scope(db.engine, identity) as session:
-        stmt = db.tables.persons.update().where(db.tablespersons.columns.full_name == 'Milen Kouylekov').values(full_name='TSD Admin')
+        stmt = db.tables.persons.update().where(db.tables.persons.columns.full_name == 'Milen Kouylekov').values(full_name='TSD Admin')
         session.execute(stmt)
 
     # Delete
