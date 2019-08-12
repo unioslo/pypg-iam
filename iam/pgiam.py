@@ -44,6 +44,8 @@ class Db(object):
     group_moderators
     capabilities_http
     capabilities_http_grants
+    audit_log_objects
+    audit_log_relations
 
     Functions
     ---------
@@ -122,7 +124,7 @@ class Db(object):
         self.tables = namedtuple('tables', ['persons', 'users', 'groups',
                                             'group_memberships', 'group_moderators',
                                             'capabilities_http', 'capabilities_http_grants',
-                                            'audit_log'])
+                                            'audit_log_objects', 'audit_log_relations'])
         self.tables.persons = self.meta.tables['persons']
         self.tables.users = self.meta.tables['users']
         self.tables.groups = self.meta.tables['groups']
@@ -130,7 +132,8 @@ class Db(object):
         self.tables.group_moderators = self.meta.tables['group_moderators']
         self.tables.capabilities_http = self.meta.tables['capabilities_http']
         self.tables.capabilities_http_grants = self.meta.tables['capabilities_http_grants']
-        self.tables.audit_log = self.meta.tables['audit_log']
+        self.tables.audit_log_objects = self.meta.tables['audit_log_objects']
+        self.tables.audit_log_relations = self.meta.tables['audit_log_objects']
 
     def exec_sql(self, sql, params={}, fetch=True, session_identity=None):
         """
