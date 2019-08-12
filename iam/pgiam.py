@@ -47,6 +47,10 @@ class Db(object):
     audit_log_objects
     audit_log_relations
 
+    Note: the audit_log_objects, and audit_log_relations are partitioned
+    by the table_name column, so it is recommended that queries _always_
+    filter on 'where table_name = name' when doing select queries.
+
     Functions
     ---------
     person_groups
