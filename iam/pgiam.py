@@ -57,6 +57,7 @@ class Db(object):
     person_capabilities
     person_access
     user_groups
+    user_moderators
     user_capabilities
     group_members
     group_moderators
