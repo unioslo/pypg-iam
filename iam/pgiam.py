@@ -238,6 +238,22 @@ class Db(object):
         q = "select user_groups('{0}')".format(user_name)
         return self.exec_sql(q, session_identity)[0][0]
 
+    def user_moderators(self, user_name, session_identity=None):
+        """
+        Get the groups which the user moderates.
+
+        Parameters
+        ----------
+        user_name: str
+
+        Returns
+        -------
+        dict
+
+        """
+        q = "select user_moderators('{0}')".format(user_name)
+        return self.exec_sql(q, session_identity)[0][0]
+
     def user_capabilities(self, user_name, grants=True, session_identity=None):
         """
         Get the capabilities (access) for a user via its group
