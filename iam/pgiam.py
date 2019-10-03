@@ -184,7 +184,7 @@ class Db(object):
 
         """
         q = "select person_groups('{0}')".format(person_id)
-        return self.exec_sql(q, session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity)[0][0]
 
     def person_capabilities(self, person_id, grants=True, session_identity=None):
         """
@@ -203,7 +203,7 @@ class Db(object):
         """
         g = 't' if grants else 'f'
         q = "select person_capabilities('{0}', '{1}')".format(person_id, g)
-        return self.exec_sql(q, session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity)[0][0]
 
     def person_access(self, person_id, session_identity=None):
         """
@@ -221,7 +221,7 @@ class Db(object):
 
         """
         q = "select person_access('{0}')".format(person_id)
-        return self.exec_sql(q, session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity)[0][0]
 
     def user_groups(self, user_name, session_identity=None):
         """
@@ -237,7 +237,7 @@ class Db(object):
 
         """
         q = "select user_groups('{0}')".format(user_name)
-        return self.exec_sql(q, session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity)[0][0]
 
     def user_moderators(self, user_name, session_identity=None):
         """
@@ -253,7 +253,7 @@ class Db(object):
 
         """
         q = "select user_moderators('{0}')".format(user_name)
-        return self.exec_sql(q, session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity)[0][0]
 
     def user_capabilities(self, user_name, grants=True, session_identity=None):
         """
@@ -272,7 +272,7 @@ class Db(object):
         """
         g = 't' if grants else 'f'
         q = "select user_capabilities('{0}', '{1}')".format(user_name, g)
-        return self.exec_sql(q, session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity)[0][0]
 
     def group_members(self, group_name, session_identity=None):
         """
@@ -288,7 +288,7 @@ class Db(object):
 
         """
         q = "select group_members('{0}')".format(group_name)
-        return self.exec_sql(q, session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity)[0][0]
 
     def group_moderators(self, group_name, session_identity=None):
         """
@@ -304,7 +304,7 @@ class Db(object):
 
         """
         q = "select group_moderators('{0}')".format(group_name)
-        return self.exec_sql(q, session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity)[0][0]
 
     def group_member_add(self, group_name, member, session_identity=None):
         """
@@ -337,7 +337,7 @@ class Db(object):
 
         """
         q = "select group_member_add('{0}', '{1}')".format(group_name, member)
-        return self.exec_sql(q, session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity)[0][0]
 
     def group_member_remove(self, group_name, member, session_identity=None):
         """
@@ -359,7 +359,7 @@ class Db(object):
 
         """
         q = "select group_member_remove('{0}', '{1}')".format(group_name, member)
-        return self.exec_sql(q, session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity)[0][0]
 
     def group_capabilities(self, group_name, grants=True, session_identity=None):
         """
@@ -377,7 +377,7 @@ class Db(object):
         """
         g = 't' if grants else 'f'
         q = "select group_capabilities('{0}', '{1}')".format(group_name, g)
-        return self.exec_sql(q, session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity)[0][0]
 
     def capability_grants(self, capability_name, session_identity=None):
         """
@@ -393,4 +393,4 @@ class Db(object):
 
         """
         q = "select capability_grants('{0}')".format(capability_name)
-        return self.exec_sql(q, session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity)[0][0]
