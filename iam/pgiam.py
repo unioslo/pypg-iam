@@ -422,7 +422,7 @@ class Db(object):
 
         Returns
         -------
-        dict
+        bool
 
         """
         q = "select capability_grant_delete('{0}')".format(grant_id)
