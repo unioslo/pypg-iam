@@ -394,3 +394,36 @@ class Db(object):
         """
         q = "select capability_grants('{0}')".format(capability_name)
         return self.exec_sql(q, session_identity=session_identity)[0][0]
+
+     def capability_grant_rank_set(self, grant_id, new_grant_rank, session_identity=None):
+        """
+        Set the rank of a grant.
+
+        Parameters
+        ----------
+        grant_id: str (uuid4)
+        new_grant_rank: int
+
+        Returns
+        -------
+        bool
+
+        """
+        q = "select capability_grant_rank_set('{0}', '{1}')".format(grant_id, new_grant_rank)
+        return self.exec_sql(q, session_identity=session_identity)[0][0]
+
+    def capability_grant_delete(self, grant_id, session_identity=None):
+        """
+        Get the resource grants associated with a specific capability.
+
+        Parameters
+        ----------
+        grant_id: str (uuid4)
+
+        Returns
+        -------
+        dict
+
+        """
+        q = "select capability_grant_delete('{0}')".format(grant_id)
+        return self.exec_sql(q, session_identity=session_identity)[0][0]
