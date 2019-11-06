@@ -6,7 +6,7 @@ setup(
     name='pypg-iam',
     version='0.2.0',
     description='python library for pg-iam',
-    author='Leon du Toit',
+    author='Leon du Toit, Milen Kouylekov',
     author_email='dutoit.leon@gmail.com',
     url='https://github.com/leondutoit/pg-iam',
     packages=['iam'],
