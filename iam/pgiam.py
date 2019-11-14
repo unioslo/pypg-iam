@@ -395,7 +395,7 @@ class Db(object):
         q = "select capability_grants('{0}')".format(capability_name)
         return self.exec_sql(q, session_identity=session_identity)[0][0]
 
-     def capability_grant_rank_set(self, grant_id, new_grant_rank, session_identity=None):
+    def capability_grant_rank_set(self, grant_id, new_grant_rank, session_identity=None):
         """
         Set the rank of a grant.
 
