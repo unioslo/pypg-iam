@@ -136,6 +136,7 @@ class Db(object):
         self.tables.group_memberships = self.meta.tables['group_memberships']
         self.tables.group_moderators = self.meta.tables['group_moderators']
         self.tables.capabilities_http = self.meta.tables['capabilities_http']
+        self.tables.capabilities_http_instances = self.meta.tables['capabilities_http_instances']
         self.tables.capabilities_http_grants = self.meta.tables['capabilities_http_grants']
         self.tables.audit_log_objects = self.meta.tables['audit_log_objects']
         self.tables.audit_log_relations = self.meta.tables['audit_log_objects']
