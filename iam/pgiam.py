@@ -429,7 +429,7 @@ class Db(object):
         q = "select capability_grant_delete('{0}')".format(grant_id)
         return self.exec_sql(q, session_identity=session_identity)[0][0]
 
-    def capability_instance_create(self, instance_id, session_identity=None):
+    def capability_instance_get(self, instance_id, session_identity=None):
         """
         Create a capability instance.
 
@@ -442,5 +442,5 @@ class Db(object):
         bool
 
         """
-        q = "select capability_instance_create('{0}')".format(instance_id)
+        q = "select capability_instance_get('{0}')".format(instance_id)
         return self.exec_sql(q, session_identity=session_identity)[0][0]
