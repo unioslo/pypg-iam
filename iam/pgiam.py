@@ -439,7 +439,7 @@ class Db(object):
 
         Returns
         -------
-        bool
+        dict
 
         """
         q = "select capability_instance_get('{0}')".format(instance_id)
