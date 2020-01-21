@@ -65,6 +65,11 @@ class Db(object):
     group_member_remove
     group_capabilities
     capability_grants
+    capability_grant_rank_set
+    capability_grant_delete
+    capability_instance_get
+    capabilities_http_sync
+    capabilities_http_grants_sync
 
     Example usage
     -------------
@@ -445,7 +450,7 @@ class Db(object):
         q = "select capability_instance_get('{0}')".format(instance_id)
         return self.exec_sql(q, session_identity=session_identity)[0][0]
 
-    def capabilities_http_sync_names(self, capabilities, session_identity=None):
+    def capabilities_http_sync(self, capabilities, session_identity=None):
         """
         Synchronise a list of capabilities to the capabilities_http table,
         replacing any existing entries with the same names, and adding
@@ -565,10 +570,13 @@ class Db(object):
                     session.execute(insert_query, capability)
         return res
 
-    def capabilities_http_grants_sync_namespace(self, grants, session_identity=None):
+    def capabilities_http_grants_sync(self, grants, session_identity=None):
         """
         Synchronise a list of grants to the capabilities_http_grants table,
         explicitly by capability_grant_id. The caller MUST provide IDs.
+        Although generating UUIDs may seem laborious, it is the only way
+        to ensure the sync is 100% correct, given the dynamic generation of
+        grants.
 
         Semantics: over-write or append.
 
@@ -592,10 +600,10 @@ class Db(object):
 
         """
         res = True
-        required_keys = ['capability_name', 'capability_grant_id', 'capability_grant_hostname',
-                         'capability_grant_namespace', 'capability_grant_http_method',
-                         'capability_grant_rank', 'capability_grant_uri_pattern',
-                         'capability_grant_required_groups']
+        required_keys = ['capability_name', 'capability_grant_id',
+                         'capability_grant_hostname', 'capability_grant_namespace',
+                         'capability_grant_http_method', 'capability_grant_rank',
+                         'capability_grant_uri_pattern', 'capability_grant_required_groups']
         for capability in grants:
             input_keys = grants.keys()
             for key in required_keys:
@@ -614,10 +622,11 @@ class Db(object):
                     if column not in input_keys:
                         grant[column] = None
                 if exists:
-                    # update
+                    # update everything but the rank with sql
                     print('exists')
+                    # set rank with func - for rebalancing
                 else:
                     # insert
-                    # set rank
+                    # set rank with func - for rebalancing
                     print('NOT exists')
         return res
