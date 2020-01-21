@@ -449,26 +449,32 @@ class Db(object):
         """
         Synchronise a list of capabilities to the capabilities_http table,
         replacing any existing entries with the same names, and adding
-        any entries which do not exist. There is no auto deletion.
+        any entries which do not exist. There is no auto deletion - since
+        that would cascade to grants.
 
-        E.g.
+        NB!: for any given capability name provided by the caller,
+        if the entry exists, if existing columns in the db have values,
+        but are not set in the call, they will be set to NULL.
 
-        db = Db(...)
-        names = [
-            {
-                'capability_name': 'import',
-                'capability_required_groups': [],
-                'capability_lifetime': '',
-                'capability_desription': ''
-            },
-            {
-                'capability_name': 'import',
-                'capability_required_groups': [],
-                'capability_lifetime': '',
-                'capability_desription': ''
-            },
-        ]
-        db.capabilities_http_sync_names(names)
+        For example, if you have an entry such as:
+
+        capability_name | capability_default_claims | ...
+        ---------------   -------------------------   ---
+        test            | {'user': 'test-user'}
+
+        And the caller provides a capability in the capabilities
+        parameter such as:
+
+        [{'capability_name': 'test', ...}], omitting the capability_default_claims
+        from the keys, then the result of the sync will be:
+
+        capability_name | capability_default_claims | ...
+        ---------------   -------------------------   ---
+        test            | NULL
+
+        The caller should, therefore, take care to fully specify the
+        capabilities that will be synced, and not rely on existing
+        information in the db.
 
         Parameters
         ----------
@@ -483,6 +489,24 @@ class Db(object):
         For a full list of available columns, see:
 
             db.tables.capabilities_http
+
+        Example usage
+        -------------
+        names = [
+            {
+                'capability_name': 'import',
+                'capability_required_groups': ['some-group'],
+                'capability_lifetime': 20,
+                'capability_desription': 'allow import'
+            },
+            {
+                'capability_name': 'export',
+                'capability_required_groups': ['another-group', 'super-group'],
+                'capability_lifetime': 10,
+                'capability_desription': 'allow export'
+            },
+        ]
+        db.capabilities_http_sync_names(names)
 
         Returns
         -------
@@ -509,32 +533,34 @@ class Db(object):
                     if column not in input_keys:
                         capability[column] = None
                 if exists:
-                    update_query = """update capabilities_http set
-                                        capability_default_claims = :capability_default_claims,
-                                        capability_required_groups = :capability_required_groups,
-                                        capability_required_attributes = :capability_required_attributes,
-                                        capability_group_match_method = :capability_group_match_method,
-                                        capability_lifetime = :capability_lifetime,
-                                        capability_description = :capability_description,
-                                        capability_expiry_date = :capability_expiry_date,
-                                        capability_group_existence_check = :capability_group_existence_check,
-                                        capability_metadata = :capability_metadata
-                                    where capability_name = :capability_name"""
+
+                    update_query = """
+                        update capabilities_http set
+                            capability_default_claims = :capability_default_claims,
+                            capability_required_groups = :capability_required_groups,
+                            capability_required_attributes = :capability_required_attributes,
+                            capability_group_match_method = :capability_group_match_method,
+                            capability_lifetime = :capability_lifetime,
+                            capability_description = :capability_description,
+                            capability_expiry_date = :capability_expiry_date,
+                            capability_group_existence_check = :capability_group_existence_check,
+                            capability_metadata = :capability_metadata
+                        where capability_name = :capability_name"""
                     session.execute(update_query, capability)
                 else:
-                    insert_query = """insert into capabilities_http
-                                        (capability_name, capability_default_claims,
-                                         capability_required_groups, capability_required_attributes,
-                                         capability_group_match_method, capability_lifetime,
-                                         capability_description, capability_expiry_date,
-                                         capability_group_existence_check, capability_metadata)
-                                      values
-                                        (:capability_name, :capability_default_claims,
-                                         :capability_required_groups, :capability_required_attributes,
-                                         :capability_group_match_method, :capability_lifetime,
-                                         :capability_description, :capability_expiry_date,
-                                         :capability_group_existence_check, :capability_metadata)
-                                    """
+                    insert_query = """
+                        insert into capabilities_http
+                            (capability_name, capability_default_claims,
+                             capability_required_groups, capability_required_attributes,
+                             capability_group_match_method, capability_lifetime,
+                             capability_description, capability_expiry_date,
+                             capability_group_existence_check, capability_metadata)
+                          values
+                            (:capability_name, :capability_default_claims,
+                             :capability_required_groups, :capability_required_attributes,
+                             :capability_group_match_method, :capability_lifetime,
+                             :capability_description, :capability_expiry_date,
+                             :capability_group_existence_check, :capability_metadata)"""
                     session.execute(insert_query, capability)
         return res
 
