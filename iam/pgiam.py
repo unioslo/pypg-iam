@@ -569,16 +569,80 @@ class Db(object):
         Synchronise a list of grants to the capabilities_http_grants table,
         replacing any existing entries with the same combination of:
         (capability_name, capability_grant_hostname,
-         capability_grant_namespace, capability_grant_http_method,
-         capability_grant_rank).
+         capability_grant_namespace, capability_grant_http_method).
+
+        NB!: for any given grant provided by the caller,
+        if the entry exists, if existing columns in the db have values,
+        but are not set in the call, they will be set to NULL.
+
+        For example, if you have an entry such as:
+
+        capability_name | capability_grant_start_date | ...
+        ---------------   ---------------------------   ---
+        test            | 2020-01-10
+
+        And the caller provides a grant in the capabilities
+        parameter such as:
+
+        [{'capability_name': 'test', ...}], omitting the capability_grant_start_date
+        from the keys, then the result of the sync will be:
+
+        capability_name | capability_grant_start_date | ...
+        ---------------   ---------------------------   ---
+        test            | NULL
+
+        The caller should, therefore, take care to fully specify the
+        grant that will be synced, and not rely on existing
+        information in the db.
 
         Parameters
         ----------
         grants: list of dicts
+
+        The following dict keys are compulsory:
+            capability_name
+            capability_grant_hostname
+            capability_grant_namespace
+            capability_grant_http_method
+            capability_grant_rank
+            capability_grant_uri_pattern
+            capability_grant_required_group
 
         Returns
         -------
         bool
 
         """
-        pass
+        res = True
+        required_keys = ['capability_name', 'capability_grant_hostname',
+                         'capability_grant_namespace', 'capability_grant_http_method',
+                         'capability_grant_rank', 'capability_grant_uri_pattern',
+                         'capability_grant_required_groups']
+        for capability in grants:
+            input_keys = grants.keys()
+            for key in required_keys:
+                if key not in input_keys:
+                    m = 'missing required key: {0} in grant, cannot do sync without error'.format(key)
+                    raise Exception(m)
+        table_columns = list(map(lambda x: str(x).replace('capabilities_http_grants.', ''),
+                                 self.tables.capabilities_http_grants.columns))[2:]
+        with session_scope(self.engine, session_identity) as session:
+            for grant in grants:
+                exists_query = """select count(1) from capabilities_http_grants
+                                  where capability_name = :capability_name
+                                  and capability_grant_hostname = :capability_grant_hostname
+                                  and capability_grant_namespace = :capability_grant_namespace
+                                  and capability_grant_http_method = :capability_grant_http_method"""
+                exists = session.execute(exists_query, grant).fetchone()[0]
+                input_keys = capability.keys()
+                for column in table_columns:
+                    if column not in input_keys:
+                        grant[column] = None
+                if exists:
+                    # update
+                    print('exists')
+                else:
+                    # insert
+                    # set rank
+                    print('NOT exists')
+        return res
