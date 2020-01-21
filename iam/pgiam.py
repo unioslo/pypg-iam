@@ -452,6 +452,8 @@ class Db(object):
         any entries which do not exist. There is no auto deletion - since
         that would cascade to grants.
 
+        Semantics: over-write or append.
+
         NB!: for any given capability name provided by the caller,
         if the entry exists, if existing columns in the db have values,
         but are not set in the call, they will be set to NULL.
@@ -533,7 +535,6 @@ class Db(object):
                     if column not in input_keys:
                         capability[column] = None
                 if exists:
-
                     update_query = """
                         update capabilities_http set
                             capability_default_claims = :capability_default_claims,
@@ -567,46 +568,23 @@ class Db(object):
     def capabilities_http_grants_sync_namespace(self, grants, session_identity=None):
         """
         Synchronise a list of grants to the capabilities_http_grants table,
-        replacing any existing entries with the same combination of:
-        (capability_name, capability_grant_hostname,
-         capability_grant_namespace, capability_grant_http_method).
+        explicitly by capability_grant_id. The caller MUST provide IDs.
 
-        NB!: for any given grant provided by the caller,
-        if the entry exists, if existing columns in the db have values,
-        but are not set in the call, they will be set to NULL.
-
-        For example, if you have an entry such as:
-
-        capability_name | capability_grant_start_date | ...
-        ---------------   ---------------------------   ---
-        test            | 2020-01-10
-
-        And the caller provides a grant in the capabilities
-        parameter such as:
-
-        [{'capability_name': 'test', ...}], omitting the capability_grant_start_date
-        from the keys, then the result of the sync will be:
-
-        capability_name | capability_grant_start_date | ...
-        ---------------   ---------------------------   ---
-        test            | NULL
-
-        The caller should, therefore, take care to fully specify the
-        grant that will be synced, and not rely on existing
-        information in the db.
+        Semantics: over-write or append.
 
         Parameters
         ----------
         grants: list of dicts
 
         The following dict keys are compulsory:
-            capability_name
-            capability_grant_hostname
-            capability_grant_namespace
-            capability_grant_http_method
-            capability_grant_rank
-            capability_grant_uri_pattern
-            capability_grant_required_group
+            capability_name: str
+            capability_grant_id: uuid4
+            capability_grant_hostname: str
+            capability_grant_namespace: str
+            capability_grant_http_method: str
+            capability_grant_rank: int > 0
+            capability_grant_uri_pattern: str
+            capability_grant_required_groups: list
 
         Returns
         -------
@@ -614,7 +592,7 @@ class Db(object):
 
         """
         res = True
-        required_keys = ['capability_name', 'capability_grant_hostname',
+        required_keys = ['capability_name', 'capability_grant_id', 'capability_grant_hostname',
                          'capability_grant_namespace', 'capability_grant_http_method',
                          'capability_grant_rank', 'capability_grant_uri_pattern',
                          'capability_grant_required_groups']
@@ -629,10 +607,7 @@ class Db(object):
         with session_scope(self.engine, session_identity) as session:
             for grant in grants:
                 exists_query = """select count(1) from capabilities_http_grants
-                                  where capability_name = :capability_name
-                                  and capability_grant_hostname = :capability_grant_hostname
-                                  and capability_grant_namespace = :capability_grant_namespace
-                                  and capability_grant_http_method = :capability_grant_http_method"""
+                                  where capability_grant_id = :capability_grant_id"""
                 exists = session.execute(exists_query, grant).fetchone()[0]
                 input_keys = capability.keys()
                 for column in table_columns:
