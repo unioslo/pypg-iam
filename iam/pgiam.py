@@ -444,3 +444,115 @@ class Db(object):
         """
         q = "select capability_instance_get('{0}')".format(instance_id)
         return self.exec_sql(q, session_identity=session_identity)[0][0]
+
+    def capabilities_http_sync_names(self, capabilities, session_identity=None):
+        """
+        Synchronise a list of capabilities to the capabilities_http table,
+        replacing any existing entries with the same names, and adding
+        any entries which do not exist. There is no auto deletion.
+
+        E.g.
+
+        db = Db(...)
+        names = [
+            {
+                'capability_name': 'import',
+                'capability_required_groups': [],
+                'capability_lifetime': '',
+                'capability_desription': ''
+            },
+            {
+                'capability_name': 'import',
+                'capability_required_groups': [],
+                'capability_lifetime': '',
+                'capability_desription': ''
+            },
+        ]
+        db.capabilities_http_sync_names(names)
+
+        Parameters
+        ----------
+        capabilities: list of dicts
+
+        The following dict keys are compulsory:
+            capability_name: str
+            capability_required_groups: list
+            capability_lifetime: str
+            capability_desription: str
+
+        For a full list of available columns, see:
+
+            db.tables.capabilities_http
+
+        Returns
+        -------
+        bool
+
+        """
+        res = True
+        required_keys = ['capability_name', 'capability_required_groups',
+                         'capability_lifetime', 'capability_description']
+        for capability in capabilities:
+            input_keys = capability.keys()
+            for key in required_keys:
+                if key not in input_keys:
+                    m = 'missing required key: {0} in capability, cannot do sync without error'.format(key)
+                    raise Exception(m)
+        table_columns = list(map(lambda x: str(x).replace('capabilities_http.', ''),
+                                 self.tables.capabilities_http.columns))[2:]
+        with session_scope(self.engine, session_identity) as session:
+            for capability in capabilities:
+                exists_query = 'select count(1) from capabilities_http where capability_name = :capability_name'
+                exists = session.execute(exists_query, capability).fetchone()[0]
+                input_keys = capability.keys()
+                for column in table_columns:
+                    if column not in input_keys:
+                        capability[column] = None
+                if exists:
+                    update_query = """update capabilities_http set
+                                        capability_default_claims = :capability_default_claims,
+                                        capability_required_groups = :capability_required_groups,
+                                        capability_required_attributes = :capability_required_attributes,
+                                        capability_group_match_method = :capability_group_match_method,
+                                        capability_lifetime = :capability_lifetime,
+                                        capability_description = :capability_description,
+                                        capability_expiry_date = :capability_expiry_date,
+                                        capability_group_existence_check = :capability_group_existence_check,
+                                        capability_metadata = :capability_metadata
+                                    where capability_name = :capability_name"""
+                    session.execute(update_query, capability)
+                else:
+                    insert_query = """insert into capabilities_http
+                                        (capability_name, capability_default_claims,
+                                         capability_required_groups, capability_required_attributes,
+                                         capability_group_match_method, capability_lifetime,
+                                         capability_description, capability_expiry_date,
+                                         capability_group_existence_check, capability_metadata)
+                                      values
+                                        (:capability_name, :capability_default_claims,
+                                         :capability_required_groups, :capability_required_attributes,
+                                         :capability_group_match_method, :capability_lifetime,
+                                         :capability_description, :capability_expiry_date,
+                                         :capability_group_existence_check, :capability_metadata)
+                                    """
+                    session.execute(insert_query, capability)
+        return res
+
+    def capabilities_http_grants_sync_namespace(self, grants, session_identity=None):
+        """
+        Synchronise a list of grants to the capabilities_http_grants table,
+        replacing any existing entries with the same combination of:
+        (capability_name, capability_grant_hostname,
+         capability_grant_namespace, capability_grant_http_method,
+         capability_grant_rank).
+
+        Parameters
+        ----------
+        grants: list of dicts
+
+        Returns
+        -------
+        bool
+
+        """
+        pass
