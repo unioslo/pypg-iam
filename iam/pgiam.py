@@ -556,17 +556,27 @@ class Db(object):
                 else:
                     insert_query = """
                         insert into capabilities_http
-                            (capability_name, capability_default_claims,
-                             capability_required_groups, capability_required_attributes,
-                             capability_group_match_method, capability_lifetime,
-                             capability_description, capability_expiry_date,
-                             capability_group_existence_check, capability_metadata)
+                            (capability_name,
+                             capability_default_claims,
+                             capability_required_groups,
+                             capability_required_attributes,
+                             capability_group_match_method,
+                             capability_lifetime,
+                             capability_description,
+                             capability_expiry_date,
+                             capability_group_existence_check,
+                             capability_metadata)
                           values
-                            (:capability_name, :capability_default_claims,
-                             :capability_required_groups, :capability_required_attributes,
-                             :capability_group_match_method, :capability_lifetime,
-                             :capability_description, :capability_expiry_date,
-                             :capability_group_existence_check, :capability_metadata)"""
+                            (:capability_name,
+                             :capability_default_claims,
+                             :capability_required_groups,
+                             :capability_required_attributes,
+                             :capability_group_match_method,
+                             :capability_lifetime,
+                             :capability_description,
+                             :capability_expiry_date,
+                             :capability_group_existence_check,
+                             :capability_metadata)"""
                     session.execute(insert_query, capability)
         return res
 
