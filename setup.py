@@ -15,5 +15,4 @@ setup(
             'tests/*.py',
         ]
     },
-    scripts=['scripts/test-iam']
 )
