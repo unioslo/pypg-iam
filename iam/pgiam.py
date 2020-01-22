@@ -64,7 +64,6 @@ class Db(object):
     group_member_add
     group_member_remove
     group_capabilities
-    capability_grants
     capability_grant_rank_set
     capability_grant_delete
     capability_instance_get
@@ -385,22 +384,6 @@ class Db(object):
         q = "select group_capabilities('{0}', '{1}')".format(group_name, g)
         return self.exec_sql(q, session_identity=session_identity)[0][0]
 
-    def capability_grants(self, capability_name, session_identity=None):
-        """
-        Get the resource grants associated with a specific capability.
-
-        Parameters
-        ----------
-        capability_name: str
-
-        Returns
-        -------
-        dict
-
-        """
-        q = "select capability_grants('{0}')".format(capability_name)
-        return self.exec_sql(q, session_identity=session_identity)[0][0]
-
     def capability_grant_rank_set(self, grant_id, new_grant_rank, session_identity=None):
         """
         Set the rank of a grant.
@@ -606,7 +589,6 @@ class Db(object):
         grants: list of dicts
 
         The following dict keys are compulsory:
-            capability_name: str
             capability_grant_id: uuid4
             capability_grant_hostname: str
             capability_grant_namespace: str
@@ -621,7 +603,7 @@ class Db(object):
 
         """
         res = True
-        required_keys = ['capability_name', 'capability_grant_id',
+        required_keys = ['capability_grant_id',
                          'capability_grant_hostname', 'capability_grant_namespace',
                          'capability_grant_http_method', 'capability_grant_rank',
                          'capability_grant_uri_pattern', 'capability_grant_required_groups']
@@ -649,7 +631,6 @@ class Db(object):
                 if exists:
                     update_query = """
                         update capabilities_http_grants set
-                            capability_name = :capability_name,
                             capability_grant_hostname = :capability_grant_hostname,
                             capability_grant_namespace = :capability_grant_namespace,
                             capability_grant_http_method = :capability_grant_http_method,
@@ -668,8 +649,7 @@ class Db(object):
                 else:
                     insert_query = """
                         insert into capabilities_http_grants
-                            (capability_name,
-                             capability_grant_id,
+                            (capability_grant_id,
                              capability_grant_hostname,
                              capability_grant_namespace,
                              capability_grant_http_method,
@@ -682,8 +662,7 @@ class Db(object):
                              capability_grant_group_existence_check,
                              capability_grant_metadata)
                         values
-                            (:capability_name,
-                             :capability_grant_id,
+                            (:capability_grant_id,
                              :capability_grant_hostname,
                              :capability_grant_namespace,
                              :capability_grant_http_method,
