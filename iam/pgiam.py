@@ -588,7 +588,18 @@ class Db(object):
         to ensure the sync is 100% correct, given the dynamic generation of
         grants.
 
-        Semantics: over-write or append, atomically.
+        Semantics: over-write or append. The append writes cannot be
+        completely atomic, due to how rank numbers are set. When inserting
+        a new entry for a given (capability_name, capability_grant_hostname,
+        capability_grant_namespace) combination, the default new rank will
+        place the entry at the end of the list. If the caller specifies a
+        rank that is different from the default value (end of the list)
+        then the insert transaction has to be commited before the rank
+        can be updated to the desired value. The rank cannot be set in the
+        same transation because it requires updating the ranks of other grants.
+
+        So if the call fails for new entries, the caller should just try again,
+        since calls are idempotent.
 
         Parameters
         ----------
@@ -614,26 +625,28 @@ class Db(object):
                          'capability_grant_hostname', 'capability_grant_namespace',
                          'capability_grant_http_method', 'capability_grant_rank',
                          'capability_grant_uri_pattern', 'capability_grant_required_groups']
-        for capability in grants:
-            input_keys = grants.keys()
+        for grant in grants:
+            input_keys = grant.keys()
             for key in required_keys:
                 if key not in input_keys:
                     m = 'missing required key: {0} in grant, cannot do sync without error'.format(key)
                     raise Exception(m)
         table_columns = list(map(lambda x: str(x).replace('capabilities_http_grants.', ''),
                                  self.tables.capabilities_http_grants.columns))[2:]
+        new_grants = []
         with session_scope(self.engine, session_identity) as session:
             for grant in grants:
                 exists_query = """select count(1) from capabilities_http_grants
                                   where capability_grant_id = :capability_grant_id"""
                 exists = session.execute(exists_query, grant).fetchone()[0]
-                input_keys = capability.keys()
+                input_keys = grant.keys()
                 for column in table_columns:
                     if column not in input_keys:
-                        grant[column] = None
+                        if column == 'capability_grant_group_existence_check':
+                            grant[column] = True
+                        else:
+                            grant[column] = None
                 if exists:
-                    # update everything but the rank
-                    print('exists')
                     update_query = """
                         update capabilities_http_grants set
                             capability_name = :capability_name,
@@ -646,7 +659,7 @@ class Db(object):
                             capability_grant_start_date = :capability_grant_start_date,
                             capability_grant_end_date = :capability_grant_end_date,
                             capability_grant_max_num_usages = :capability_grant_max_num_usages,
-                            capability_grant_group_existence_check = :capability_group_existence_check,
+                            capability_grant_group_existence_check = :capability_grant_group_existence_check,
                             capability_grant_metadata = :capability_grant_metadata
                         where capability_grant_id = :capability_grant_id"""
                     session.execute(update_query, grant)
@@ -656,6 +669,7 @@ class Db(object):
                     insert_query = """
                         insert into capabilities_http_grants
                             (capability_name,
+                             capability_grant_id,
                              capability_grant_hostname,
                              capability_grant_namespace,
                              capability_grant_http_method,
@@ -669,6 +683,7 @@ class Db(object):
                              capability_grant_metadata)
                         values
                             (:capability_name,
+                             :capability_grant_id,
                              :capability_grant_hostname,
                              :capability_grant_namespace,
                              :capability_grant_http_method,
@@ -681,6 +696,9 @@ class Db(object):
                              :capability_grant_group_existence_check,
                              :capability_grant_metadata)"""
                     session.execute(insert_query, grant)
-                    session.execute("select capability_grant_rank_set('{0}', '{1}')".format(
-                        grant['capability_grant_id'], grant['capability_grant_rank']))
+                    new_grants.append({'id': grant['capability_grant_id'], 'rank' :grant['capability_grant_rank']})
+        with session_scope(self.engine, session_identity) as session:
+            for grant in new_grants:
+                session.execute("select capability_grant_rank_set('{0}', '{1}')".format(
+                    grant['id'], grant['rank']))
         return res
