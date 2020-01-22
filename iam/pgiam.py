@@ -457,7 +457,7 @@ class Db(object):
         any entries which do not exist. There is no auto deletion - since
         that would cascade to grants.
 
-        Semantics: over-write or append.
+        Semantics: over-write or append, atomically.
 
         NB!: for any given capability name provided by the caller,
         if the entry exists, if existing columns in the db have values,
@@ -578,7 +578,7 @@ class Db(object):
         to ensure the sync is 100% correct, given the dynamic generation of
         grants.
 
-        Semantics: over-write or append.
+        Semantics: over-write or append, atomically.
 
         Parameters
         ----------
@@ -622,11 +622,55 @@ class Db(object):
                     if column not in input_keys:
                         grant[column] = None
                 if exists:
-                    # update everything but the rank with sql
+                    # update everything but the rank
                     print('exists')
-                    # set rank with func - for rebalancing
+                    update_query = """
+                        update capabilities_http_grants set
+                            capability_name = :capability_name,
+                            capability_grant_hostname = :capability_grant_hostname,
+                            capability_grant_namespace = :capability_grant_namespace,
+                            capability_grant_http_method = :capability_grant_http_method,
+                            capability_grant_uri_pattern = :capability_grant_uri_pattern,
+                            capability_grant_required_groups = :capability_grant_required_groups,
+                            capability_grant_required_attributes = :capability_grant_required_attributes,
+                            capability_grant_start_date = :capability_grant_start_date,
+                            capability_grant_end_date = :capability_grant_end_date,
+                            capability_grant_max_num_usages = :capability_grant_max_num_usages,
+                            capability_grant_group_existence_check = :capability_group_existence_check,
+                            capability_grant_metadata = :capability_grant_metadata
+                        where capability_grant_id = :capability_grant_id"""
+                    session.execute(update_query, grant)
+                    session.execute("select capability_grant_rank_set('{0}', '{1}')".format(
+                        grant['capability_grant_id'], grant['capability_grant_rank']))
                 else:
-                    # insert
-                    # set rank with func - for rebalancing
-                    print('NOT exists')
+                    insert_query = """
+                        insert into capabilities_http_grants
+                            (capability_name,
+                             capability_grant_hostname,
+                             capability_grant_namespace,
+                             capability_grant_http_method,
+                             capability_grant_uri_pattern,
+                             capability_grant_required_groups,
+                             capability_grant_required_attributes,
+                             capability_grant_start_date,
+                             capability_grant_end_date,
+                             capability_grant_max_num_usages,
+                             capability_grant_group_existence_check,
+                             capability_grant_metadata)
+                        values
+                            (:capability_name,
+                             :capability_grant_hostname,
+                             :capability_grant_namespace,
+                             :capability_grant_http_method,
+                             :capability_grant_uri_pattern,
+                             :capability_grant_required_groups,
+                             :capability_grant_required_attributes,
+                             :capability_grant_start_date,
+                             :capability_grant_end_date,
+                             :capability_grant_max_num_usages,
+                             :capability_grant_group_existence_check,
+                             :capability_grant_metadata)"""
+                    session.execute(insert_query, grant)
+                    session.execute("select capability_grant_rank_set('{0}', '{1}')".format(
+                        grant['capability_grant_id'], grant['capability_grant_rank']))
         return res
