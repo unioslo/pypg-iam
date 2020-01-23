@@ -1,4 +1,3 @@
-#!/bin env python3
 
 from sys import argv, exit
 
@@ -97,9 +96,11 @@ def test_pgiam():
         capabilities = caps1
         assert len(capabilities) == 2
         assert capabilities[0][name_col_idx] == 'test1'
-        assert (len(capabilities[0][group_col_idx]) == 1 and _in_group1 in capabilities[0][group_col_idx])
+        assert (len(capabilities[0][group_col_idx]) == 1
+                and capabilities[0][group_col_idx] == [_in_group1])
         assert capabilities[1][name_col_idx] == 'test2'
-        assert (len(capabilities[1][group_col_idx]) == 1 and _in_group1 in capabilities[1][group_col_idx])
+        assert (len(capabilities[1][group_col_idx]) == 1
+                and capabilities[1][group_col_idx] == [_in_group1])
         names2 = [
             {
                 'capability_name': 'test1',
@@ -128,18 +129,20 @@ def test_pgiam():
         capabilities = caps2
         assert len(capabilities) == 3
         assert capabilities[0][name_col_idx] == 'test1'
-        assert (len(capabilities[0][group_col_idx]) == 1 and _in_group1 in capabilities[0][group_col_idx])
+        assert (len(capabilities[0][group_col_idx]) == 1
+                and capabilities[0][group_col_idx] == [_in_group1])
         assert capabilities[1][name_col_idx] == 'test2'
-        assert (len(capabilities[1][group_col_idx]) == 1 and _in_group2 in capabilities[1][group_col_idx])
+        assert (len(capabilities[1][group_col_idx]) == 1
+                and capabilities[1][group_col_idx] == [_in_group2])
         assert capabilities[2][name_col_idx] == 'test3'
-        assert (len(capabilities[2][group_col_idx]) == 2 and _in_group1 in capabilities[2][group_col_idx] \
-            and '{0}-group'.format(_in_uname) in capabilities[2][group_col_idx])
+        assert (len(capabilities[2][group_col_idx]) == 2
+                and capabilities[2][group_col_idx] == [_in_group1, '{0}-group'.format(_in_uname)])
         # capability grants
         grants1 = [
             {
                 'capability_grant_id': grid1,
                 'capability_grant_hostname': 'my.api.com',
-                'capability_grant_namespace': 'iam',
+                'capability_grant_namespace': 'files',
                 'capability_grant_http_method': 'PUT',
                 'capability_grant_rank': 1,
                 'capability_grant_uri_pattern': '/groups/[a-zA-Z0-9]',
@@ -153,19 +156,68 @@ def test_pgiam():
                 'capability_grant_http_method': 'HEAD',
                 'capability_grant_rank': 2,
                 'capability_grant_uri_pattern': '/files/export$',
-                'capability_grant_required_groups': ['admin-group', 'export-group']
+                'capability_grant_required_groups': [_in_group3, _in_group4]
             },
         ]
         print(db.capabilities_http_grants_sync(grants1))
         # check the db, then add a new sync, and check the result
+        gs1 = db.exec_sql('select * from capabilities_http_grants where capability_grant_id in (:id1, :id2)',
+                         {'id1': grid1, 'id2': grid2})
+        print(gs1)
+        gs = gs1
+        g_rank_idx = 5
+        g_req_gr_idx = 7
+        assert len(gs) == 2
+        assert (gs[0][g_rank_idx] == 1 and gs[0][g_req_gr_idx] == ['self', 'moderator'])
+        assert (gs[1][g_rank_idx] == 1 and gs[1][g_req_gr_idx] == [_in_group3, _in_group4])
+        # test changing groups, ranks, and introducing a new grant
+        grants2 = [
+            {
+                'capability_grant_id': grid1,
+                'capability_grant_hostname': 'my.api.com',
+                'capability_grant_namespace': 'files',
+                'capability_grant_http_method': 'PUT',
+                'capability_grant_rank': 2,
+                'capability_grant_uri_pattern': '/groups/[a-zA-Z0-9]',
+                'capability_grant_required_groups': ['self', 'moderator'],
+                'capability_grant_group_existence_check': False
+            },
+            {
+                'capability_grant_id': grid2,
+                'capability_grant_hostname': 'my.api.com',
+                'capability_grant_namespace': 'files',
+                'capability_grant_http_method': 'HEAD',
+                'capability_grant_rank': 1,
+                'capability_grant_uri_pattern': '/files/export$',
+                'capability_grant_required_groups': [_in_group1, _in_group2]
+            },
+            {
+                'capability_grant_id': grid3,
+                'capability_grant_hostname': 'my.api.com',
+                'capability_grant_namespace': 'files',
+                'capability_grant_http_method': 'PUT',
+                'capability_grant_rank': 1,
+                'capability_grant_uri_pattern': '/groupsps/admin$',
+                'capability_grant_required_groups': [_in_group1]
+            },
+        ]
+        print(db.capabilities_http_grants_sync(grants2))
+        gs2 = db.exec_sql('select * from capabilities_http_grants where capability_grant_id in (:id1, :id2, :id3)',
+                         {'id1': grid1, 'id2': grid2, 'id3': grid3})
+        print(gs2)
+        gs = gs2
+        assert len(gs) == 3
+        assert (gs[0][g_rank_idx] == 2 and gs[0][g_req_gr_idx] == ['self', 'moderator'])
+        assert (gs[1][g_rank_idx] == 1 and gs[1][g_req_gr_idx] == [_in_group3, _in_group4])
+        assert (gs[2][g_rank_idx] == 1 and gs[1][g_req_gr_idx] == [_in_group3, _in_group4])
         #print(db.person_capabilities(pid))
         #print(db.person_access(pid))
         #print(db.user_capabilities(_in_uname))
         #print(db.group_capabilities('{0}-group'.format(_in_uname)))
     except (Exception, AssertionError )as e:
         print('something went wrong :(')
-        print(e)
         cleanup(pid)
+        raise e
         return
     cleanup(pid)
     print('ALL GOOD')
