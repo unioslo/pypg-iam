@@ -210,10 +210,11 @@ def test_pgiam():
         assert (gs[0][g_rank_idx] == 1 and gs[0][g_req_gr_idx] == ['self', 'moderator'])
         assert (gs[1][g_rank_idx] == 1 and gs[1][g_req_gr_idx] == [_in_group1, _in_group2])
         assert (gs[2][g_rank_idx] == 2 and gs[2][g_req_gr_idx] == [_in_group1])
-        #print(db.person_capabilities(pid))
-        #print(db.person_access(pid))
-        #print(db.user_capabilities(_in_uname))
-        #print(db.group_capabilities('{0}-group'.format(_in_uname)))
+        # set the rank explicitly
+        print(db.person_capabilities(pid))
+        print(db.person_access(pid))
+        print(db.user_capabilities(_in_uname))
+        print(db.group_capabilities('{0}-group'.format(_in_uname)))
     except (Exception, AssertionError )as e:
         print('something went wrong :(')
         cleanup(pid)
