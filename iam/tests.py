@@ -75,19 +75,65 @@ def test_pgiam():
         names1 = [
             {
                 'capability_name': 'test1',
-                'capability_required_groups': ['admin-group'],
+                'capability_required_groups': [_in_group1],
                 'capability_lifetime': 60,
                 'capability_description': 'allows data import'
             },
             {
                 'capability_name': 'test2',
-                'capability_required_groups': ['admin-group'],
+                'capability_required_groups': [_in_group1],
                 'capability_lifetime': 60,
                 'capability_description': 'allows data import'
             },
         ]
         print(db.capabilities_http_sync(names1))
-        # check the db, then add a new sync, and check the result
+        caps1 = db.exec_sql('select * from capabilities_http where capability_name in (:n1, :n2)',
+                           {'n1': 'test1', 'n2': 'test2'})
+        print(caps1)
+        # check both are there
+        # and have expected groups
+        name_col_idx = 2
+        group_col_idx = 4
+        capabilities = caps1
+        assert len(capabilities) == 2
+        assert capabilities[0][name_col_idx] == 'test1'
+        assert (len(capabilities[0][group_col_idx]) == 1 and _in_group1 in capabilities[0][group_col_idx])
+        assert capabilities[1][name_col_idx] == 'test2'
+        assert (len(capabilities[1][group_col_idx]) == 1 and _in_group1 in capabilities[1][group_col_idx])
+        names2 = [
+            {
+                'capability_name': 'test1',
+                'capability_required_groups': [_in_group1],
+                'capability_lifetime': 60,
+                'capability_description': 'allows data import'
+            },
+            {
+                'capability_name': 'test2',
+                'capability_required_groups': [_in_group2],
+                'capability_lifetime': 60,
+                'capability_description': 'allows data import'
+            },
+            {
+                'capability_name': 'test3',
+                'capability_required_groups': [_in_group1, '{0}-group'.format(_in_uname)],
+                'capability_lifetime': 60,
+                'capability_description': 'allows data import'
+            },
+        ]
+        print(db.capabilities_http_sync(names2))
+        caps2 = db.exec_sql('select * from capabilities_http where capability_name in (:n1, :n2, :n3)',
+                           {'n1': 'test1', 'n2': 'test2', 'n3': 'test3'})
+        print(caps2)
+        # check test2 has new group, and that test3 is there
+        capabilities = caps2
+        assert len(capabilities) == 3
+        assert capabilities[0][name_col_idx] == 'test1'
+        assert (len(capabilities[0][group_col_idx]) == 1 and _in_group1 in capabilities[0][group_col_idx])
+        assert capabilities[1][name_col_idx] == 'test2'
+        assert (len(capabilities[1][group_col_idx]) == 1 and _in_group2 in capabilities[1][group_col_idx])
+        assert capabilities[2][name_col_idx] == 'test3'
+        assert (len(capabilities[2][group_col_idx]) == 2 and _in_group1 in capabilities[2][group_col_idx] \
+            and '{0}-group'.format(_in_uname) in capabilities[2][group_col_idx])
         # capability grants
         grants1 = [
             {
