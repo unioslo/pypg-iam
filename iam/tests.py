@@ -27,7 +27,20 @@ def test_pgiam():
     _in_group2 = 'g2'
     _in_group3 = 'g3'
     _in_group4 = 'g4'
+    pid = None
     try:
+        grid1 = '46c3e25a-a72a-402a-baba-9e1de840e95a'
+        grid2 = '49f1ceed-132f-4ccb-afed-a4ed8350a5ce'
+        grid3 = 'e2f1e0cf-e6d4-4baa-b546-8f76ed89ef42'
+        grid4 = '61ebfa64-39aa-4a5f-bbf9-c9d65c6539cf'
+        def cleanup(pid):
+            db.exec_sql('delete from persons where person_id = :pid', {'pid': pid}, fetch=False)
+            db.exec_sql('delete from groups where group_name in (:g1, :g2, :g3, :g4)',
+                       {'g1': _in_group1, 'g2': _in_group2, 'g3': _in_group3, 'g4': _in_group4}, fetch=False)
+            db.exec_sql('delete from capabilities_http where capability_name in (:n1, :n2, :n3)',
+                       {'n1': 'test1', 'n2': 'test2', 'n3': 'test3'}, fetch=False)
+            db.exec_sql('delete from capabilities_http_grants where capability_grant_id in (:id1, :id2, :id3, :id4)',
+                       {'id1': grid1, 'id2': grid2, 'id3': grid3, 'id4': grid4}, fetch=False)
         # create a person
         db.exec_sql('insert into persons(full_name) values (:full_name)',
                    {'full_name': _in_full_name}, fetch=False)
@@ -58,56 +71,59 @@ def test_pgiam():
         print(db.group_moderators(_in_group1))
         print(db.group_member_remove(_in_group1, _in_group3))
         print(db.group_members(_in_group1))
-        # the following functions are not implemented in the SQL library
-        # and therefore tested more extensively
-        names = [
-            {'capability_name': 'import',
-             'capability_required_groups': ['admin-group'],
-             'capability_lifetime': 60,
-             'capability_description': 'allows data import'},
-            {'capability_name': 'export',
-             'capability_required_groups': ['admin-group'],
-             'capability_lifetime': 60,
-             'capability_description': 'allows data import'},
+        # capabilities
+        names1 = [
+            {
+                'capability_name': 'test1',
+                'capability_required_groups': ['admin-group'],
+                'capability_lifetime': 60,
+                'capability_description': 'allows data import'
+            },
+            {
+                'capability_name': 'test2',
+                'capability_required_groups': ['admin-group'],
+                'capability_lifetime': 60,
+                'capability_description': 'allows data import'
+            },
         ]
-        identity = 'tester'
-        #print(db.capabilities_http_sync(names, identity))
-        grants = [
-            {'capability_grant_id': '46c3e25a-a72a-402a-baba-9e1de840e95a',
-             'capability_grant_hostname': 'my.api',
-             'capability_grant_namespace': 'iam',
-             'capability_grant_http_method': 'PUT',
-             'capability_grant_rank': 1,
-             'capability_grant_uri_pattern': '/groups/[a-zA-Z0-9]',
-             'capability_grant_required_groups': ['self', 'moderator'],
-             'capability_grant_group_existence_check': False},
-            {'capability_grant_id': '49f1ceed-132f-4ccb-afed-a4ed8350a5ce',
-             'capability_grant_hostname': 'api.com',
-             'capability_grant_namespace': 'files',
-             'capability_grant_http_method': 'HEAD',
-             'capability_grant_rank': 2,
-             'capability_grant_uri_pattern': '/files/export$',
-             'capability_grant_required_groups': ['admin-group', 'export-group']},
+        print(db.capabilities_http_sync(names1))
+        # check the db, then add a new sync, and check the result
+        # capability grants
+        grants1 = [
+            {
+                'capability_grant_id': grid1,
+                'capability_grant_hostname': 'my.api.com',
+                'capability_grant_namespace': 'iam',
+                'capability_grant_http_method': 'PUT',
+                'capability_grant_rank': 1,
+                'capability_grant_uri_pattern': '/groups/[a-zA-Z0-9]',
+                'capability_grant_required_groups': ['self', 'moderator'],
+                'capability_grant_group_existence_check': False
+            },
+            {
+                'capability_grant_id': grid2,
+                'capability_grant_hostname': 'my.api.com',
+                'capability_grant_namespace': 'files',
+                'capability_grant_http_method': 'HEAD',
+                'capability_grant_rank': 2,
+                'capability_grant_uri_pattern': '/files/export$',
+                'capability_grant_required_groups': ['admin-group', 'export-group']
+            },
         ]
-        #print(db.capabilities_http_grants_sync(grants, identity)))
-
+        print(db.capabilities_http_grants_sync(grants1))
+        # check the db, then add a new sync, and check the result
         #print(db.person_capabilities(pid))
         #print(db.person_access(pid))
-        #print(db.user_capabilities(user_name))
-        #print(db.group_capabilities('p11-admin-group'))
-    except Exception as e:
+        #print(db.user_capabilities(_in_uname))
+        #print(db.group_capabilities('{0}-group'.format(_in_uname)))
+    except (Exception, AssertionError )as e:
         print('something went wrong :(')
         print(e)
-        db.exec_sql('delete from persons where person_id = :pid', {'pid': pid}, fetch=False)
-        db.exec_sql('delete from groups where group_name in (:g1, :g2, :g3, :g4)',
-                   {'g1': _in_group1, 'g2': _in_group2, 'g3': _in_group3, 'g4': _in_group4}, fetch=False)
+        cleanup(pid)
         return
-    db.exec_sql('delete from persons where person_id = :pid', {'pid': pid}, fetch=False)
-    db.exec_sql('delete from groups where group_name in (:g1, :g2, :g3, :g4)',
-               {'g1': _in_group1, 'g2': _in_group2, 'g3': _in_group3, 'g4': _in_group4}, fetch=False)
+    cleanup(pid)
     print('ALL GOOD')
     return db
-
 
 
 if __name__ == '__main__':
