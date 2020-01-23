@@ -154,7 +154,7 @@ def test_pgiam():
                 'capability_grant_hostname': 'my.api.com',
                 'capability_grant_namespace': 'files',
                 'capability_grant_http_method': 'HEAD',
-                'capability_grant_rank': 2,
+                'capability_grant_rank': 1,
                 'capability_grant_uri_pattern': '/files/export$',
                 'capability_grant_required_groups': [_in_group3, _in_group4]
             },
@@ -177,7 +177,7 @@ def test_pgiam():
                 'capability_grant_hostname': 'my.api.com',
                 'capability_grant_namespace': 'files',
                 'capability_grant_http_method': 'PUT',
-                'capability_grant_rank': 2,
+                'capability_grant_rank': 1,
                 'capability_grant_uri_pattern': '/groups/[a-zA-Z0-9]',
                 'capability_grant_required_groups': ['self', 'moderator'],
                 'capability_grant_group_existence_check': False
@@ -196,7 +196,7 @@ def test_pgiam():
                 'capability_grant_hostname': 'my.api.com',
                 'capability_grant_namespace': 'files',
                 'capability_grant_http_method': 'PUT',
-                'capability_grant_rank': 1,
+                'capability_grant_rank': 2,
                 'capability_grant_uri_pattern': '/groupsps/admin$',
                 'capability_grant_required_groups': [_in_group1]
             },
@@ -207,9 +207,9 @@ def test_pgiam():
         print(gs2)
         gs = gs2
         assert len(gs) == 3
-        assert (gs[0][g_rank_idx] == 2 and gs[0][g_req_gr_idx] == ['self', 'moderator'])
-        assert (gs[1][g_rank_idx] == 1 and gs[1][g_req_gr_idx] == [_in_group3, _in_group4])
-        assert (gs[2][g_rank_idx] == 1 and gs[1][g_req_gr_idx] == [_in_group3, _in_group4])
+        assert (gs[0][g_rank_idx] == 1 and gs[0][g_req_gr_idx] == ['self', 'moderator'])
+        assert (gs[1][g_rank_idx] == 1 and gs[1][g_req_gr_idx] == [_in_group1, _in_group2])
+        assert (gs[2][g_rank_idx] == 2 and gs[2][g_req_gr_idx] == [_in_group1])
         #print(db.person_capabilities(pid))
         #print(db.person_access(pid))
         #print(db.user_capabilities(_in_uname))
