@@ -211,6 +211,15 @@ def test_pgiam():
         assert (gs[1][g_rank_idx] == 1 and gs[1][g_req_gr_idx] == [_in_group1, _in_group2])
         assert (gs[2][g_rank_idx] == 2 and gs[2][g_req_gr_idx] == [_in_group1])
         # set the rank explicitly
+        print(db.capability_grant_rank_set(grid3, 1))
+        gs = db.exec_sql('select * from capabilities_http_grants where capability_grant_id = :id3',
+                        {'id3': grid3})
+        assert gs[0][g_rank_idx] == 1
+        # delete a grant
+        print(db.capability_grant_delete(grid3))
+        gs = db.exec_sql('select * from capabilities_http_grants where capability_grant_id in (:id1, :id2, :id3)',
+                        {'id1': grid1, 'id2': grid2, 'id3': grid3})
+        assert gs[0][g_rank_idx] == 1 # reset automatically
         print(db.person_capabilities(pid))
         print(db.person_access(pid))
         print(db.user_capabilities(_in_uname))
