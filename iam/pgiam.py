@@ -681,3 +681,37 @@ class Db(object):
                 session.execute("select capability_grant_rank_set('{0}', '{1}')".format(
                     grant['id'], grant['rank']))
         return res
+
+    def capabilities_http_grants_group_add(self, grant_reference, group_name, session_identity=None):
+        """
+        Add a required group to a grant.
+
+        Parameters
+        ----------
+        grant_reference: str (capability_grant_id, or capability_grant_name)
+        group_name: str
+
+        Returns
+        -------
+        boolean
+
+        """
+        q = "select capability_grant_group_add('{0}', '{1}')".format(grant_reference, group_name)
+        return self.exec_sql(q, session_identity=session_identity)[0][0]
+
+    def capabilities_http_grants_group_remove(self, grant_reference, group_name, session_identity=None):
+        """
+        Remove a required group from a grant.
+
+        Parameters
+        ----------
+        grant_reference: str (capability_grant_id, or capability_grant_name)
+        group_name: str
+
+        Returns
+        -------
+        boolean
+
+        """
+        q = "select capability_grant_group_remove('{0}', '{1}')".format(grant_reference, group_name)
+        return self.exec_sql(q, session_identity=session_identity)[0][0]

@@ -224,6 +224,8 @@ def test_pgiam():
         print(db.person_access(pid))
         print(db.user_capabilities(_in_uname))
         print(db.group_capabilities('{0}-group'.format(_in_uname)))
+        print(db.capabilities_http_grants_group_add(grid1, _in_group2))
+        print(db.capabilities_http_grants_group_remove(grid1, _in_group2))
     except (Exception, AssertionError )as e:
         print('something went wrong :(')
         cleanup(pid)
