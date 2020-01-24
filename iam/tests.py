@@ -165,8 +165,8 @@ def test_pgiam():
                          {'id1': grid1, 'id2': grid2})
         print(gs1)
         gs = gs1
-        g_rank_idx = 5
-        g_req_gr_idx = 7
+        g_rank_idx = 6
+        g_req_gr_idx = 8
         assert len(gs) == 2
         assert (gs[0][g_rank_idx] == 1 and gs[0][g_req_gr_idx] == ['self', 'moderator'])
         assert (gs[1][g_rank_idx] == 1 and gs[1][g_req_gr_idx] == [_in_group3, _in_group4])
