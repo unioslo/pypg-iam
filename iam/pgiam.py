@@ -603,7 +603,7 @@ class Db(object):
 
         """
         res = True
-        required_keys = ['capability_grant_id',
+        required_keys = ['capability_grant_id', 'capability_names_allowed',
                          'capability_grant_hostname', 'capability_grant_namespace',
                          'capability_grant_http_method', 'capability_grant_rank',
                          'capability_grant_uri_pattern', 'capability_grant_required_groups']
@@ -631,6 +631,7 @@ class Db(object):
                 if exists:
                     update_query = """
                         update capabilities_http_grants set
+                            capability_names_allowed = :capability_names_allowed,
                             capability_grant_hostname = :capability_grant_hostname,
                             capability_grant_namespace = :capability_grant_namespace,
                             capability_grant_http_method = :capability_grant_http_method,
@@ -650,6 +651,7 @@ class Db(object):
                     insert_query = """
                         insert into capabilities_http_grants
                             (capability_grant_id,
+                             capability_names_allowed,
                              capability_grant_hostname,
                              capability_grant_namespace,
                              capability_grant_http_method,
@@ -663,6 +665,7 @@ class Db(object):
                              capability_grant_metadata)
                         values
                             (:capability_grant_id,
+                             :capability_names_allowed,
                              :capability_grant_hostname,
                              :capability_grant_namespace,
                              :capability_grant_http_method,
