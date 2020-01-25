@@ -141,6 +141,7 @@ def test_pgiam():
         grants1 = [
             {
                 'capability_grant_id': grid1,
+                'capability_names_allowed': ['test1'],
                 'capability_grant_hostname': 'my.api.com',
                 'capability_grant_namespace': 'files',
                 'capability_grant_http_method': 'PUT',
@@ -151,6 +152,7 @@ def test_pgiam():
             },
             {
                 'capability_grant_id': grid2,
+                'capability_names_allowed': ['test2'],
                 'capability_grant_hostname': 'my.api.com',
                 'capability_grant_namespace': 'files',
                 'capability_grant_http_method': 'HEAD',
@@ -165,8 +167,8 @@ def test_pgiam():
                          {'id1': grid1, 'id2': grid2})
         print(gs1)
         gs = gs1
-        g_rank_idx = 6
-        g_req_gr_idx = 8
+        g_rank_idx = 7
+        g_req_gr_idx = 9
         assert len(gs) == 2
         assert (gs[0][g_rank_idx] == 1 and gs[0][g_req_gr_idx] == ['self', 'moderator'])
         assert (gs[1][g_rank_idx] == 1 and gs[1][g_req_gr_idx] == [_in_group3, _in_group4])
@@ -174,6 +176,7 @@ def test_pgiam():
         grants2 = [
             {
                 'capability_grant_id': grid1,
+                'capability_names_allowed': ['test1'],
                 'capability_grant_hostname': 'my.api.com',
                 'capability_grant_namespace': 'files',
                 'capability_grant_http_method': 'PUT',
@@ -184,6 +187,7 @@ def test_pgiam():
             },
             {
                 'capability_grant_id': grid2,
+                'capability_names_allowed': ['test1'],
                 'capability_grant_hostname': 'my.api.com',
                 'capability_grant_namespace': 'files',
                 'capability_grant_http_method': 'HEAD',
@@ -193,6 +197,7 @@ def test_pgiam():
             },
             {
                 'capability_grant_id': grid3,
+                'capability_names_allowed': ['test2'],
                 'capability_grant_hostname': 'my.api.com',
                 'capability_grant_namespace': 'files',
                 'capability_grant_http_method': 'PUT',
