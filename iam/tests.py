@@ -36,10 +36,10 @@ def test_pgiam():
             db.exec_sql('delete from persons where person_id = :pid', {'pid': pid}, fetch=False)
             db.exec_sql('delete from groups where group_name in (:g1, :g2, :g3, :g4)',
                        {'g1': _in_group1, 'g2': _in_group2, 'g3': _in_group3, 'g4': _in_group4}, fetch=False)
-            db.exec_sql('delete from capabilities_http where capability_name in (:n1, :n2, :n3)',
-                       {'n1': 'test1', 'n2': 'test2', 'n3': 'test3'}, fetch=False)
             db.exec_sql('delete from capabilities_http_grants where capability_grant_id in (:id1, :id2, :id3, :id4)',
                        {'id1': grid1, 'id2': grid2, 'id3': grid3, 'id4': grid4}, fetch=False)
+            db.exec_sql('delete from capabilities_http where capability_name in (:n1, :n2, :n3)',
+                       {'n1': 'test1', 'n2': 'test2', 'n3': 'test3'}, fetch=False)
         # create a person
         db.exec_sql('insert into persons(full_name) values (:full_name)',
                    {'full_name': _in_full_name}, fetch=False)
