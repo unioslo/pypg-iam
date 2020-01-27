@@ -69,6 +69,8 @@ class Db(object):
     capability_instance_get
     capabilities_http_sync
     capabilities_http_grants_sync
+    capabilities_http_grants_group_add
+    capabilities_http_grants_group_remove
 
     Example usage
     -------------
