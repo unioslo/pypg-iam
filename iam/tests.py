@@ -33,11 +33,11 @@ def test_pgiam():
         grid3 = 'e2f1e0cf-e6d4-4baa-b546-8f76ed89ef42'
         grid4 = '61ebfa64-39aa-4a5f-bbf9-c9d65c6539cf'
         def cleanup(pid):
+            db.capability_grant_delete(grid1)
+            db.capability_grant_delete(grid2)
             db.exec_sql('delete from persons where person_id = :pid', {'pid': pid}, fetch=False)
             db.exec_sql('delete from groups where group_name in (:g1, :g2, :g3, :g4)',
                        {'g1': _in_group1, 'g2': _in_group2, 'g3': _in_group3, 'g4': _in_group4}, fetch=False)
-            db.exec_sql('delete from capabilities_http_grants where capability_grant_id in (:id1, :id2, :id3, :id4)',
-                       {'id1': grid1, 'id2': grid2, 'id3': grid3, 'id4': grid4}, fetch=False)
             db.exec_sql('delete from capabilities_http where capability_name in (:n1, :n2, :n3)',
                        {'n1': 'test1', 'n2': 'test2', 'n3': 'test3'}, fetch=False)
         # create a person
@@ -142,7 +142,7 @@ def test_pgiam():
             {
                 'capability_grant_id': grid1,
                 'capability_names_allowed': ['test1'],
-                'capability_grant_hostname': 'my.api.com',
+                'capability_grant_hostnames': ['my.api.com'],
                 'capability_grant_namespace': 'files',
                 'capability_grant_http_method': 'PUT',
                 'capability_grant_rank': 1,
@@ -153,7 +153,7 @@ def test_pgiam():
             {
                 'capability_grant_id': grid2,
                 'capability_names_allowed': ['test2'],
-                'capability_grant_hostname': 'my.api.com',
+                'capability_grant_hostnames': ['my.api.com'],
                 'capability_grant_namespace': 'files',
                 'capability_grant_http_method': 'HEAD',
                 'capability_grant_rank': 1,
@@ -161,6 +161,7 @@ def test_pgiam():
                 'capability_grant_required_groups': [_in_group3, _in_group4]
             },
         ]
+        print('grant sync 1: \n')
         print(db.capabilities_http_grants_sync(grants1))
         # check the db, then add a new sync, and check the result
         gs1 = db.exec_sql('select * from capabilities_http_grants where capability_grant_id in (:id1, :id2)',
@@ -177,7 +178,7 @@ def test_pgiam():
             {
                 'capability_grant_id': grid1,
                 'capability_names_allowed': ['test1'],
-                'capability_grant_hostname': 'my.api.com',
+                'capability_grant_hostnames': ['my.api.com'],
                 'capability_grant_namespace': 'files',
                 'capability_grant_http_method': 'PUT',
                 'capability_grant_rank': 1,
@@ -188,7 +189,7 @@ def test_pgiam():
             {
                 'capability_grant_id': grid2,
                 'capability_names_allowed': ['test1'],
-                'capability_grant_hostname': 'my.api.com',
+                'capability_grant_hostnames': ['my.api.com'],
                 'capability_grant_namespace': 'files',
                 'capability_grant_http_method': 'HEAD',
                 'capability_grant_rank': 1,
@@ -198,7 +199,7 @@ def test_pgiam():
             {
                 'capability_grant_id': grid3,
                 'capability_names_allowed': ['test2'],
-                'capability_grant_hostname': 'my.api.com',
+                'capability_grant_hostnames': ['my.api.com'],
                 'capability_grant_namespace': 'files',
                 'capability_grant_http_method': 'PUT',
                 'capability_grant_rank': 2,
@@ -206,6 +207,7 @@ def test_pgiam():
                 'capability_grant_required_groups': [_in_group1]
             },
         ]
+        print('grant sync 2: \n')
         print(db.capabilities_http_grants_sync(grants2))
         gs2 = db.exec_sql('select * from capabilities_http_grants where capability_grant_id in (:id1, :id2, :id3)',
                          {'id1': grid1, 'id2': grid2, 'id3': grid3})
