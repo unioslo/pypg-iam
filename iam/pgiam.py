@@ -3,6 +3,7 @@
 database system. The class provides sqlalchemy objects, and instance methods
 for calling database functions."""
 
+import json
 
 from contextlib import contextmanager
 from collections import namedtuple
@@ -43,6 +44,7 @@ class Db(object):
     group_memberships
     group_moderators
     capabilities_http
+    capabilities_http_instances
     capabilities_http_grants
     audit_log_objects
     audit_log_relations
@@ -122,8 +124,6 @@ class Db(object):
     # Next vs fetch One
     db.tables.persons.select().where(db.tables.persons.columns.full_name == 'TSD Admin').execute().next() Throws StopIteration if not found
     db.tables.persons.select().where(db.tables.persons.columns.full_name == 'TSD Admin').execute().fetch_one() returns None if not found
-
-
 
     """
 
@@ -508,6 +508,8 @@ class Db(object):
         res = True
         required_keys = ['capability_name', 'capability_required_groups',
                          'capability_lifetime', 'capability_description']
+        json_columns = ['capability_default_claims', 'capability_required_attributes',
+                        'capability_metadata']
         for capability in capabilities:
             input_keys = capability.keys()
             for key in required_keys:
@@ -522,6 +524,8 @@ class Db(object):
                 exists = session.execute(exists_query, capability).fetchone()[0]
                 input_keys = capability.keys()
                 for column in table_columns:
+                    if column in json_columns and column in input_keys:
+                        capability[column] = json.dumps(capability[column])
                     if column not in input_keys:
                         capability[column] = None
                 if exists:
@@ -592,7 +596,7 @@ class Db(object):
 
         The following dict keys are compulsory:
             capability_grant_id: uuid4
-            capability_grant_hostname: str
+            capability_grant_hostnames: str
             capability_grant_namespace: str
             capability_grant_http_method: str
             capability_grant_rank: int > 0
@@ -606,9 +610,10 @@ class Db(object):
         """
         res = True
         required_keys = ['capability_grant_id', 'capability_names_allowed',
-                         'capability_grant_hostname', 'capability_grant_namespace',
+                         'capability_grant_hostnames', 'capability_grant_namespace',
                          'capability_grant_http_method', 'capability_grant_rank',
                          'capability_grant_uri_pattern', 'capability_grant_required_groups']
+        json_columns = ['capability_grant_required_attributes', 'capability_grant_metadata']
         for grant in grants:
             input_keys = grant.keys()
             for key in required_keys:
@@ -620,13 +625,16 @@ class Db(object):
         new_grants = []
         with session_scope(self.engine, session_identity) as session:
             for grant in grants:
-                exists_query = """select count(1) from capabilities_http_grants
+                exists_query = """select count(*) from capabilities_http_grants
                                   where capability_grant_id = :capability_grant_id"""
                 exists = session.execute(exists_query, grant).fetchone()[0]
                 input_keys = grant.keys()
                 for column in table_columns:
+                    if column in json_columns and column in input_keys:
+                        grant[column] = json.dumps(grant[column])
                     if column not in input_keys:
-                        if column == 'capability_grant_group_existence_check':
+                        if column in ['capability_grant_group_existence_check',
+                                      'capability_grant_quick']:
                             grant[column] = True
                         else:
                             grant[column] = None
@@ -634,12 +642,14 @@ class Db(object):
                     update_query = """
                         update capabilities_http_grants set
                             capability_names_allowed = :capability_names_allowed,
-                            capability_grant_hostname = :capability_grant_hostname,
+                            capability_grant_name = :capability_grant_name,
+                            capability_grant_hostnames = :capability_grant_hostnames,
                             capability_grant_namespace = :capability_grant_namespace,
                             capability_grant_http_method = :capability_grant_http_method,
                             capability_grant_uri_pattern = :capability_grant_uri_pattern,
                             capability_grant_required_groups = :capability_grant_required_groups,
                             capability_grant_required_attributes = :capability_grant_required_attributes,
+                            capability_grant_quick = :capability_grant_quick,
                             capability_grant_start_date = :capability_grant_start_date,
                             capability_grant_end_date = :capability_grant_end_date,
                             capability_grant_max_num_usages = :capability_grant_max_num_usages,
@@ -654,12 +664,14 @@ class Db(object):
                         insert into capabilities_http_grants
                             (capability_grant_id,
                              capability_names_allowed,
-                             capability_grant_hostname,
+                             capability_grant_name,
+                             capability_grant_hostnames,
                              capability_grant_namespace,
                              capability_grant_http_method,
                              capability_grant_uri_pattern,
                              capability_grant_required_groups,
                              capability_grant_required_attributes,
+                             capability_grant_quick,
                              capability_grant_start_date,
                              capability_grant_end_date,
                              capability_grant_max_num_usages,
@@ -668,12 +680,14 @@ class Db(object):
                         values
                             (:capability_grant_id,
                              :capability_names_allowed,
-                             :capability_grant_hostname,
+                             :capability_grant_name,
+                             :capability_grant_hostnames,
                              :capability_grant_namespace,
                              :capability_grant_http_method,
                              :capability_grant_uri_pattern,
                              :capability_grant_required_groups,
                              :capability_grant_required_attributes,
+                             :capability_grant_quick,
                              :capability_grant_start_date,
                              :capability_grant_end_date,
                              :capability_grant_max_num_usages,
