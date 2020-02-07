@@ -506,7 +506,7 @@ class Db(object):
 
         """
         res = True
-        required_keys = ['capability_name', 'capability_required_groups',
+        required_keys = ['capability_name', 'capability_hostnames', 'capability_required_groups',
                          'capability_lifetime', 'capability_description']
         json_columns = ['capability_default_claims', 'capability_required_attributes',
                         'capability_metadata']
@@ -531,6 +531,7 @@ class Db(object):
                 if exists:
                     update_query = """
                         update capabilities_http set
+                            capability_hostnames = :capability_hostnames,
                             capability_default_claims = :capability_default_claims,
                             capability_required_groups = :capability_required_groups,
                             capability_required_attributes = :capability_required_attributes,
@@ -546,6 +547,7 @@ class Db(object):
                     insert_query = """
                         insert into capabilities_http
                             (capability_name,
+                             capability_hostnames,
                              capability_default_claims,
                              capability_required_groups,
                              capability_required_attributes,
@@ -557,6 +559,7 @@ class Db(object):
                              capability_metadata)
                           values
                             (:capability_name,
+                             :capability_hostnames,
                              :capability_default_claims,
                              :capability_required_groups,
                              :capability_required_attributes,
