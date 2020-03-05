@@ -575,10 +575,9 @@ class Db(object):
     def capabilities_http_grants_sync(self, grants, session_identity=None):
         """
         Synchronise a list of grants to the capabilities_http_grants table,
-        explicitly by capability_grant_id. The caller MUST provide IDs.
-        Although generating UUIDs may seem laborious, it is the only way
-        to ensure the sync is 100% correct, given the dynamic generation of
-        grants.
+        explicitly by capability_grant_name. The caller MUST provide a unique name.
+        The caller can optionally provide a UUID for the capability_grant_id
+        but it is not strictly necessary. The db will auto-generate one.
 
         Semantics: over-write or append. The append writes cannot be
         completely atomic, due to how rank numbers are set. When inserting
@@ -598,7 +597,7 @@ class Db(object):
         grants: list of dicts
 
         The following dict keys are compulsory:
-            capability_grant_id: uuid4
+            capability_grant_name: str
             capability_grant_hostnames: str
             capability_grant_namespace: str
             capability_grant_http_method: str
@@ -612,7 +611,7 @@ class Db(object):
 
         """
         res = True
-        required_keys = ['capability_grant_id', 'capability_names_allowed',
+        required_keys = ['capability_names_allowed', 'capability_grant_name',
                          'capability_grant_hostnames', 'capability_grant_namespace',
                          'capability_grant_http_method', 'capability_grant_rank',
                          'capability_grant_uri_pattern', 'capability_grant_required_groups']
@@ -629,7 +628,7 @@ class Db(object):
         with session_scope(self.engine, session_identity) as session:
             for grant in grants:
                 exists_query = """select count(*) from capabilities_http_grants
-                                  where capability_grant_id = :capability_grant_id"""
+                                  where capability_grant_name = :capability_grant_name"""
                 exists = session.execute(exists_query, grant).fetchone()[0]
                 input_keys = grant.keys()
                 for column in table_columns:
@@ -645,7 +644,6 @@ class Db(object):
                     update_query = """
                         update capabilities_http_grants set
                             capability_names_allowed = :capability_names_allowed,
-                            capability_grant_name = :capability_grant_name,
                             capability_grant_hostnames = :capability_grant_hostnames,
                             capability_grant_namespace = :capability_grant_namespace,
                             capability_grant_http_method = :capability_grant_http_method,
@@ -658,15 +656,18 @@ class Db(object):
                             capability_grant_max_num_usages = :capability_grant_max_num_usages,
                             capability_grant_group_existence_check = :capability_grant_group_existence_check,
                             capability_grant_metadata = :capability_grant_metadata
-                        where capability_grant_id = :capability_grant_id"""
+                        where capability_grant_name = :capability_grant_name"""
                     session.execute(update_query, grant)
+                    # get current grant_id from name
+                    curr_grant_id = session.execute('select capability_grant_id from capabilities_http_grants \
+                                                     where capability_grant_name = :name',
+                                                     {'name': grant['capability_grant_name']}).fetchone()[0]
                     session.execute("select capability_grant_rank_set('{0}', '{1}')".format(
-                        grant['capability_grant_id'], grant['capability_grant_rank']))
+                        curr_grant_id, grant['capability_grant_rank']))
                 else:
                     insert_query = """
                         insert into capabilities_http_grants
-                            (capability_grant_id,
-                             capability_names_allowed,
+                            (capability_names_allowed,
                              capability_grant_name,
                              capability_grant_hostnames,
                              capability_grant_namespace,
@@ -681,8 +682,7 @@ class Db(object):
                              capability_grant_group_existence_check,
                              capability_grant_metadata)
                         values
-                            (:capability_grant_id,
-                             :capability_names_allowed,
+                            (:capability_names_allowed,
                              :capability_grant_name,
                              :capability_grant_hostnames,
                              :capability_grant_namespace,
@@ -697,7 +697,11 @@ class Db(object):
                              :capability_grant_group_existence_check,
                              :capability_grant_metadata)"""
                     session.execute(insert_query, grant)
-                    new_grants.append({'id': grant['capability_grant_id'], 'rank' :grant['capability_grant_rank']})
+                    # get current grant_id from name
+                    curr_grant_id = session.execute('select capability_grant_id from capabilities_http_grants \
+                                                     where capability_grant_name = :name',
+                                                     {'name': grant['capability_grant_name']}).fetchone()[0]
+                    new_grants.append({'id': curr_grant_id, 'rank' :grant['capability_grant_rank']})
         with session_scope(self.engine, session_identity) as session:
             for grant in new_grants:
                 session.execute("select capability_grant_rank_set('{0}', '{1}')".format(
