@@ -39,7 +39,7 @@ def session_scope(engine, session_identity=None):
         session.commit()
     except (Exception, sqlalchemy.exc.InternalError) as e:
         session.rollback()
-        raise SqlError(f'{e}') from None
+        raise SqlError from e
     finally:
         session.close()
 
