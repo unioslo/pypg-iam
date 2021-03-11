@@ -8,9 +8,24 @@ import json
 from contextlib import contextmanager
 from collections import namedtuple
 
-from sqlalchemy import MetaData
-from sqlalchemy.orm import sessionmaker
+import sqlalchemy.exc
 
+from sqlalchemy import MetaData, create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import QueuePool
+
+
+class SqlError(Exception):
+    pass
+
+def iam_engine(dsn, require_ssl=False):
+    args = {} if not require_ssl else {'sslmode': 'require'}
+    engine = create_engine(dsn, connect_args=args, poolclass=QueuePool)
+    return engine
+
+
+def dsn_from_config(config):
+    return f"postgresql://{config['user']}:{config['pw']}@{config['host']}:5432/{config['dbname']}"
 
 @contextmanager
 def session_scope(engine, session_identity=None):
@@ -22,9 +37,9 @@ def session_scope(engine, session_identity=None):
             session.execute(q)
         yield session
         session.commit()
-    except Exception as e:
+    except (Exception, sqlalchemy.exc.InternalError) as e:
         session.rollback()
-        raise e
+        raise SqlError from e
     finally:
         session.close()
 
@@ -76,12 +91,11 @@ class Db(object):
 
     Example usage
     -------------
-    from sqlalchemy import create_engine
-    from sqlalchemy.pool import QueuePool
 
-    from iam.pgiam import Db, session_scope
+    from iam.pgiam import Db, session_scope. db_engine
 
-    engine = create_engine(dburi, poolclass=QueuePool)
+    dsn = f'' # some credentials
+    engine = iam_engine(dsn)
     db = Db(engine)
 
     # use raw sql and helper functions
@@ -127,8 +141,10 @@ class Db(object):
 
     """
 
-    def __init__(self, engine):
+    def __init__(self, engine, config={}):
         super(Db, self).__init__()
+        if not engine:
+            engine = iam_engine(dsn_from_config(config))
         self.engine = engine
         self.meta = MetaData(engine)
         self.meta.reflect()
