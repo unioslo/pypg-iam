@@ -15,4 +15,7 @@ setup(
             'tests/*.py',
         ]
     },
+    install_requires = [
+        'sqlalchemy',
+    ],
 )
