@@ -28,7 +28,7 @@ def dsn_from_config(config):
     return f"postgresql://{config['user']}:{config['pw']}@{config['host']}:5432/{config['dbname']}"
 
 @contextmanager
-def session_scope(engine, session_identity=None):
+def session_scope(engine, session_identity=None, session=None):
     Session = sessionmaker(bind=engine)
     session = Session()
     try:
@@ -163,7 +163,7 @@ class Db(object):
         self.tables.audit_log_objects = self.meta.tables['audit_log_objects']
         self.tables.audit_log_relations = self.meta.tables['audit_log_objects']
 
-    def exec_sql(self, sql, params={}, fetch=True, session_identity=None):
+    def exec_sql(self, sql, params={}, fetch=True, session_identity=None, session=None):
         """
         Execute a parameterised SQL query as a prepated statement,
         fetching all results.
@@ -186,13 +186,16 @@ class Db(object):
 
         """
         res = True
-        with session_scope(self.engine, session_identity) as session:
+        if session:
             data = session.execute(sql, params)
-            if fetch:
-                res = data.fetchall()
+        else:
+            with session_scope(self.engine, session_identity) as session:
+                data = session.execute(sql, params)
+        if fetch:
+            res = data.fetchall()
         return res
 
-    def person_groups(self, person_id, session_identity=None):
+    def person_groups(self, person_id, session_identity=None, session=None):
         """
         Get the group memberships associated with a person's
         person group.
@@ -207,9 +210,9 @@ class Db(object):
 
         """
         q = "select person_groups('{0}')".format(person_id)
-        return self.exec_sql(q, session_identity=session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def person_capabilities(self, person_id, grants=True, session_identity=None):
+    def person_capabilities(self, person_id, grants=True, session_identity=None, session=None):
         """
         Get an overview of the capabilities a person has access to
         via their group memberships.
@@ -226,9 +229,9 @@ class Db(object):
         """
         g = 't' if grants else 'f'
         q = "select person_capabilities('{0}', '{1}')".format(person_id, g)
-        return self.exec_sql(q, session_identity=session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def person_access(self, person_id, session_identity=None):
+    def person_access(self, person_id, session_identity=None, session=None):
         """
         Get an overview of all access rights the person has,
         via their person group, and all the user accounts, and
@@ -244,9 +247,9 @@ class Db(object):
 
         """
         q = "select person_access('{0}')".format(person_id)
-        return self.exec_sql(q, session_identity=session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def user_groups(self, user_name, session_identity=None):
+    def user_groups(self, user_name, session_identity=None, session=None):
         """
         Get the group memberships for a user.
 
@@ -260,9 +263,9 @@ class Db(object):
 
         """
         q = "select user_groups('{0}')".format(user_name)
-        return self.exec_sql(q, session_identity=session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def user_moderators(self, user_name, session_identity=None):
+    def user_moderators(self, user_name, session_identity=None, session=None):
         """
         Get the groups which the user moderates.
 
@@ -276,9 +279,9 @@ class Db(object):
 
         """
         q = "select user_moderators('{0}')".format(user_name)
-        return self.exec_sql(q, session_identity=session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def user_capabilities(self, user_name, grants=True, session_identity=None):
+    def user_capabilities(self, user_name, grants=True, session_identity=None, session=None):
         """
         Get the capabilities (access) for a user via its group
         memberships.
@@ -295,9 +298,9 @@ class Db(object):
         """
         g = 't' if grants else 'f'
         q = "select user_capabilities('{0}', '{1}')".format(user_name, g)
-        return self.exec_sql(q, session_identity=session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def group_members(self, group_name, session_identity=None):
+    def group_members(self, group_name, session_identity=None, session=None):
         """
         Get the membership graph of group_name.
 
@@ -311,9 +314,9 @@ class Db(object):
 
         """
         q = "select group_members('{0}')".format(group_name)
-        return self.exec_sql(q, session_identity=session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def group_moderators(self, group_name, session_identity=None):
+    def group_moderators(self, group_name, session_identity=None, session=None):
         """
         Get the moderators for a group.
 
@@ -327,9 +330,9 @@ class Db(object):
 
         """
         q = "select group_moderators('{0}')".format(group_name)
-        return self.exec_sql(q, session_identity=session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def group_member_add(self, group_name, member, session_identity=None):
+    def group_member_add(self, group_name, member, session_identity=None, session=None):
         """
         Add a new member to a group. A new member can be identified
         by either:
@@ -360,9 +363,9 @@ class Db(object):
 
         """
         q = "select group_member_add('{0}', '{1}')".format(group_name, member)
-        return self.exec_sql(q, session_identity=session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def group_member_remove(self, group_name, member, session_identity=None):
+    def group_member_remove(self, group_name, member, session_identity=None, session=None):
         """
         Remove a member from a group. A member can be identified
         by either:
@@ -382,9 +385,9 @@ class Db(object):
 
         """
         q = "select group_member_remove('{0}', '{1}')".format(group_name, member)
-        return self.exec_sql(q, session_identity=session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def group_capabilities(self, group_name, grants=True, session_identity=None):
+    def group_capabilities(self, group_name, grants=True, session_identity=None, session=None):
         """
         Get the capabilities that the group enables access to.
 
@@ -400,9 +403,9 @@ class Db(object):
         """
         g = 't' if grants else 'f'
         q = "select group_capabilities('{0}', '{1}')".format(group_name, g)
-        return self.exec_sql(q, session_identity=session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def capability_grant_rank_set(self, grant_id, new_grant_rank, session_identity=None):
+    def capability_grant_rank_set(self, grant_id, new_grant_rank, session_identity=None, session=None):
         """
         Set the rank of a grant.
 
@@ -417,9 +420,9 @@ class Db(object):
 
         """
         q = "select capability_grant_rank_set('{0}', '{1}')".format(grant_id, new_grant_rank)
-        return self.exec_sql(q, session_identity=session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def capability_grant_delete(self, grant_id, session_identity=None):
+    def capability_grant_delete(self, grant_id, session_identity=None, session=None):
         """
         Get the resource grants associated with a specific capability.
 
@@ -433,9 +436,9 @@ class Db(object):
 
         """
         q = "select capability_grant_delete('{0}')".format(grant_id)
-        return self.exec_sql(q, session_identity=session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def capability_instance_get(self, instance_id, session_identity=None):
+    def capability_instance_get(self, instance_id, session_identity=None, session=None):
         """
         Create a capability instance.
 
@@ -449,7 +452,7 @@ class Db(object):
 
         """
         q = "select capability_instance_get('{0}')".format(instance_id)
-        return self.exec_sql(q, session_identity=session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
     def capabilities_http_sync(self, capabilities, session_identity=None):
         """
@@ -724,7 +727,7 @@ class Db(object):
                     grant['id'], grant['rank']))
         return res
 
-    def capabilities_http_grants_group_add(self, grant_reference, group_name, session_identity=None):
+    def capabilities_http_grants_group_add(self, grant_reference, group_name, session_identity=None, session=None):
         """
         Add a required group to a grant.
 
@@ -739,9 +742,9 @@ class Db(object):
 
         """
         q = "select capability_grant_group_add('{0}', '{1}')".format(grant_reference, group_name)
-        return self.exec_sql(q, session_identity=session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def capabilities_http_grants_group_remove(self, grant_reference, group_name, session_identity=None):
+    def capabilities_http_grants_group_remove(self, grant_reference, group_name, session_identity=None, session=None):
         """
         Remove a required group from a grant.
 
@@ -756,4 +759,4 @@ class Db(object):
 
         """
         q = "select capability_grant_group_remove('{0}', '{1}')".format(grant_reference, group_name)
-        return self.exec_sql(q, session_identity=session_identity)[0][0]
+        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
