@@ -163,7 +163,7 @@ class Db(object):
         self.tables.audit_log_objects = self.meta.tables['audit_log_objects']
         self.tables.audit_log_relations = self.meta.tables['audit_log_objects']
 
-    def exec_sql(self, sql, params={}, fetch=True, session_identity=None, session=None):
+    def exec_sql(self, sql, params={}, fetch=True, session_identity=None, session=None, as_dicts=False):
         """
         Execute a parameterised SQL query as a prepated statement,
         fetching all results.
@@ -191,9 +191,18 @@ class Db(object):
         else:
             with session_scope(self.engine, session_identity) as session:
                 data = session.execute(sql, params)
+                columns = data.keys()
         if fetch:
             res = data.fetchall()
-        return res
+            out = res
+        if as_dicts and fetch:
+            out = []
+            for row in res:
+                record = {}
+                for k, v in zip(columns, row):
+                    record[k] = v
+                out.append(record)
+        return out
 
     def person_groups(self, person_id, session_identity=None, session=None):
         """
