@@ -185,13 +185,13 @@ class Db(object):
         list of tuples or boolean
 
         """
-        res = True
+        res, out = True, None
         if session:
             data = session.execute(sql, params)
         else:
             with session_scope(self.engine, session_identity) as session:
                 data = session.execute(sql, params)
-                columns = data.keys()
+                columns = data.keys() if fetch else None
         if fetch:
             res = data.fetchall()
             out = res
