@@ -7,28 +7,31 @@ import json
 
 from contextlib import contextmanager
 from collections import namedtuple
+from typing import Union, Optional, ContextManager
 
-import sqlalchemy.exc
+import sqlalchemy
 
 from sqlalchemy import MetaData, create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool
 
 
-class SqlError(Exception):
-    pass
-
-def iam_engine(dsn, require_ssl=False):
+def iam_engine(dsn: str, require_ssl: bool = False) -> sqlalchemy.engine.Engine:
     args = {} if not require_ssl else {'sslmode': 'require'}
     engine = create_engine(dsn, connect_args=args, poolclass=QueuePool)
     return engine
 
 
-def dsn_from_config(config):
+def dsn_from_config(config: dict) -> str:
     return f"postgresql://{config['user']}:{config['pw']}@{config['host']}:5432/{config['dbname']}"
 
+
 @contextmanager
-def session_scope(engine, session_identity=None, session=None):
+def session_scope(
+    engine: sqlalchemy.engine.Engine,
+    session_identity: Optional[str] = None,
+    session: Optional[str] = None,
+) -> ContextManager[sqlalchemy.orm.session.Session]:
     Session = sessionmaker(bind=engine)
     session = Session()
     try:
@@ -37,9 +40,9 @@ def session_scope(engine, session_identity=None, session=None):
             session.execute(q)
         yield session
         session.commit()
-    except (Exception, sqlalchemy.exc.InternalError) as e:
+    except Exception as e:
         session.rollback()
-        raise SqlError from e
+        raise e
     finally:
         session.close()
 
@@ -141,17 +144,27 @@ class Db(object):
 
     """
 
-    def __init__(self, engine, config={}):
+    def __init__(self, engine: sqlalchemy.engine.Engine, config: dict = {}) -> None:
         super(Db, self).__init__()
         if not engine:
             engine = iam_engine(dsn_from_config(config))
         self.engine = engine
         self.meta = MetaData(engine)
         self.meta.reflect()
-        self.tables = namedtuple('tables', ['persons', 'users', 'groups',
-                                            'group_memberships', 'group_moderators',
-                                            'capabilities_http', 'capabilities_http_grants',
-                                            'audit_log_objects', 'audit_log_relations'])
+        self.tables = namedtuple(
+            'tables',
+            [
+                'persons',
+                'users',
+                'groups',
+                'group_memberships',
+                'group_moderators',
+                'capabilities_http',
+                'capabilities_http_grants',
+                'audit_log_objects',
+                'audit_log_relations',
+            ]
+        )
         self.tables.persons = self.meta.tables['persons']
         self.tables.users = self.meta.tables['users']
         self.tables.groups = self.meta.tables['groups']
@@ -163,7 +176,15 @@ class Db(object):
         self.tables.audit_log_objects = self.meta.tables['audit_log_objects']
         self.tables.audit_log_relations = self.meta.tables['audit_log_objects']
 
-    def exec_sql(self, sql, params={}, fetch=True, session_identity=None, session=None, as_dicts=False):
+    def exec_sql(
+        self,
+        sql: str,
+        params: dict = {},
+        fetch: bool = True,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+        as_dicts: bool = False,
+    ) -> Union[bool, list]:
         """
         Execute a parameterised SQL query as a prepated statement,
         fetching all results.
@@ -173,9 +194,12 @@ class Db(object):
         sql: str
         params: dict
         fetch: bool, set to False for insert, update and delte
+        session_identity: the identity to record in audit
+        session: sqlalchemy session object
+        as_dicts: format data as dictionaries instead of tuples
 
-        Example
-        -------
+        Examples
+        --------
         exec_sql('select * from persons where name=:name', {'name': 'Frank'})
         exec_sql('select * from users')
         exec_sql('insert into mytable values (:y)', {'y': 5}, fetch=False)
@@ -204,7 +228,12 @@ class Db(object):
                 out.append(record)
         return out
 
-    def person_groups(self, person_id, session_identity=None, session=None):
+    def person_groups(
+        self,
+        person_id: str,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+    ) -> dict:
         """
         Get the group memberships associated with a person's
         person group.
@@ -221,7 +250,13 @@ class Db(object):
         q = "select person_groups('{0}')".format(person_id)
         return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def person_capabilities(self, person_id, grants=True, session_identity=None, session=None):
+    def person_capabilities(
+        self,
+        person_id: str,
+        grants=True,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+    ) -> dict:
         """
         Get an overview of the capabilities a person has access to
         via their group memberships.
@@ -240,7 +275,12 @@ class Db(object):
         q = "select person_capabilities('{0}', '{1}')".format(person_id, g)
         return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def person_access(self, person_id, session_identity=None, session=None):
+    def person_access(
+        self,
+        person_id: str,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+    ) -> dict:
         """
         Get an overview of all access rights the person has,
         via their person group, and all the user accounts, and
@@ -258,7 +298,12 @@ class Db(object):
         q = "select person_access('{0}')".format(person_id)
         return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def user_groups(self, user_name, session_identity=None, session=None):
+    def user_groups(
+        self,
+        user_name,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+    ) -> dict:
         """
         Get the group memberships for a user.
 
@@ -274,7 +319,12 @@ class Db(object):
         q = "select user_groups('{0}')".format(user_name)
         return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def user_moderators(self, user_name, session_identity=None, session=None):
+    def user_moderators(
+        self,
+        user_name,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+    ) -> dict:
         """
         Get the groups which the user moderates.
 
@@ -290,7 +340,13 @@ class Db(object):
         q = "select user_moderators('{0}')".format(user_name)
         return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def user_capabilities(self, user_name, grants=True, session_identity=None, session=None):
+    def user_capabilities(
+        self,
+        user_name,
+        grants: bool = True,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+    ) -> dict:
         """
         Get the capabilities (access) for a user via its group
         memberships.
@@ -309,7 +365,12 @@ class Db(object):
         q = "select user_capabilities('{0}', '{1}')".format(user_name, g)
         return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def group_members(self, group_name, session_identity=None, session=None):
+    def group_members(
+        self,
+        group_name: str,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+    ) -> dict:
         """
         Get the membership graph of group_name.
 
@@ -325,7 +386,12 @@ class Db(object):
         q = "select group_members('{0}')".format(group_name)
         return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def group_moderators(self, group_name, session_identity=None, session=None):
+    def group_moderators(
+        self,
+        group_name: str,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+    ) -> dict:
         """
         Get the moderators for a group.
 
@@ -341,7 +407,13 @@ class Db(object):
         q = "select group_moderators('{0}')".format(group_name)
         return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def group_member_add(self, group_name, member, session_identity=None, session=None):
+    def group_member_add(
+        self,
+        group_name: str,
+        member: str,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+    ) -> dict:
         """
         Add a new member to a group. A new member can be identified
         by either:
@@ -374,7 +446,13 @@ class Db(object):
         q = "select group_member_add('{0}', '{1}')".format(group_name, member)
         return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def group_member_remove(self, group_name, member, session_identity=None, session=None):
+    def group_member_remove(
+        self,
+        group_name: str,
+        member: str,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+    ) -> dict:
         """
         Remove a member from a group. A member can be identified
         by either:
@@ -396,7 +474,12 @@ class Db(object):
         q = "select group_member_remove('{0}', '{1}')".format(group_name, member)
         return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def group_capabilities(self, group_name, grants=True, session_identity=None, session=None):
+    def group_capabilities(
+        self,
+        group_name, grants=True,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+    ) -> dict:
         """
         Get the capabilities that the group enables access to.
 
@@ -414,7 +497,13 @@ class Db(object):
         q = "select group_capabilities('{0}', '{1}')".format(group_name, g)
         return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def capability_grant_rank_set(self, grant_id, new_grant_rank, session_identity=None, session=None):
+    def capability_grant_rank_set(
+        self,
+        grant_id: str,
+        new_grant_rank: str,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+    ) -> dict:
         """
         Set the rank of a grant.
 
@@ -431,7 +520,12 @@ class Db(object):
         q = "select capability_grant_rank_set('{0}', '{1}')".format(grant_id, new_grant_rank)
         return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def capability_grant_delete(self, grant_id, session_identity=None, session=None):
+    def capability_grant_delete(
+        self,
+        grant_id: str,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+    ) -> dict:
         """
         Get the resource grants associated with a specific capability.
 
@@ -447,7 +541,12 @@ class Db(object):
         q = "select capability_grant_delete('{0}')".format(grant_id)
         return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def capability_instance_get(self, instance_id, session_identity=None, session=None):
+    def capability_instance_get(
+        self,
+        instance_id: str,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+    ) -> dict:
         """
         Create a capability instance.
 
@@ -463,7 +562,11 @@ class Db(object):
         q = "select capability_instance_get('{0}')".format(instance_id)
         return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def capabilities_http_sync(self, capabilities, session_identity=None):
+    def capabilities_http_sync(
+        self,
+        capabilities: list,
+        session_identity: Optional[str] = None,
+    ) -> dict:
         """
         Synchronise a list of capabilities to the capabilities_http table,
         replacing any existing entries with the same names, and adding
@@ -600,7 +703,11 @@ class Db(object):
                     session.execute(insert_query, capability)
         return res
 
-    def capabilities_http_grants_sync(self, grants, session_identity=None):
+    def capabilities_http_grants_sync(
+        self,
+        grants: list,
+        session_identity: Optional[str] = None,
+    ) -> dict:
         """
         Synchronise a list of grants to the capabilities_http_grants table,
         explicitly by capability_grant_name. The caller MUST provide a unique name.
@@ -736,7 +843,13 @@ class Db(object):
                     grant['id'], grant['rank']))
         return res
 
-    def capabilities_http_grants_group_add(self, grant_reference, group_name, session_identity=None, session=None):
+    def capabilities_http_grants_group_add(
+        self,
+        grant_reference: str,
+        group_name: str,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+    ) -> dict:
         """
         Add a required group to a grant.
 
@@ -753,7 +866,13 @@ class Db(object):
         q = "select capability_grant_group_add('{0}', '{1}')".format(grant_reference, group_name)
         return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
-    def capabilities_http_grants_group_remove(self, grant_reference, group_name, session_identity=None, session=None):
+    def capabilities_http_grants_group_remove(
+        self,
+        grant_reference: str,
+        group_name: str,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+    ) -> dict:
         """
         Remove a required group from a grant.
 
