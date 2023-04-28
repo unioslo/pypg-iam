@@ -2,3 +2,4 @@
 build/
 dist/
 pypg_iam.egg-info/
+.DS_Store
