@@ -385,8 +385,7 @@ class Db(object):
         dict
 
         """
-        memberships_filtered = "true" if filter_memberships else "false"
-        memberships_filtered = "true" if client_timestamp else memberships_filtered
+        memberships_filtered = "true" if (filter_memberships or client_timestamp) else "false"
         client_timestamp = f"'{client_timestamp}'" if client_timestamp else "null"
         q = "select group_members('{0}', {1}, {2})".format(
             group_name,
