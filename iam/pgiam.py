@@ -530,7 +530,7 @@ class Db(object):
         1) institution_name
         2) institution_group
 
-        Note: internally, pg-iam adds instituitions to groups via their
+        Note: internally, pg-iam adds groups to institutions via their
         institution group.
 
         Parameters
@@ -595,6 +595,87 @@ class Db(object):
 
         """
         q = "select institution_groups('{0}')".format(institution)
+        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+
+    def project_group_add(
+        self,
+        project: str,
+        group_name: str,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+    ) -> dict:
+        """
+        Affiliate a group to project. A project can be identified
+        by either:
+
+        1) project_number
+        2) project_group
+
+        Note: internally, pg-iam adds groups to projects via their
+        project group.
+
+        Parameters
+        ----------
+        project: str, the project to which the group should be
+            affiliated
+        group_name: str, the new affiliated group
+
+        Returns
+        -------
+        dict
+
+        """
+        q = "select project_group_add('{0}', '{1}')".format(project, group_name)
+        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+
+    def project_group_remove(
+        self,
+        project: str,
+        group_name: str,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+    ) -> dict:
+        """
+        Remove affilitation between a group and a project. A group
+        can be identified by either:
+
+        1) person_id
+        2) user_name
+        3) group (person group, user group, or generic group)
+
+        Parameters
+        ----------
+        institution: str, the project from which the group should be
+            unaffiliated
+        group_name: str, the existing group to unaffiliate
+
+        Returns
+        -------
+        dict
+
+        """
+        q = "select project_group_remove('{0}', '{1}')".format(project, group_name)
+        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+
+    def project_groups(
+        self,
+        project: str,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+    ) -> dict:
+        """
+        Get the affiliation graph of project.
+
+        Parameters
+        ----------
+        project: str
+
+        Returns
+        -------
+        dict
+
+        """
+        q = "select project_groups('{0}')".format(project)
         return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
     def capability_grant_rank_set(
