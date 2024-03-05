@@ -50,7 +50,7 @@ def session_scope(
 class Db(object):
 
     """
-    Reflect the pgi-iam database to sqlalchemy objects,
+    Reflect the pg-iam database to sqlalchemy objects,
     provide helper methods for calling database functions,
     and executing arbitrary SQL queries.
 
@@ -368,6 +368,8 @@ class Db(object):
     def group_members(
         self,
         group_name: str,
+        filter_memberships: Optional[bool] = False,
+        client_timestamp: Optional[str] = None,
         session_identity: Optional[str] = None,
         session: Optional[sqlalchemy.orm.session.Session] = None,
     ) -> dict:
@@ -383,7 +385,13 @@ class Db(object):
         dict
 
         """
-        q = "select group_members('{0}')".format(group_name)
+        memberships_filtered = "true" if (filter_memberships or client_timestamp) else "false"
+        client_timestamp = f"'{client_timestamp}'" if client_timestamp else "null"
+        q = "select group_members('{0}', {1}, {2})".format(
+            group_name,
+            memberships_filtered,
+            client_timestamp
+        )
         return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
     def group_moderators(
@@ -411,6 +419,9 @@ class Db(object):
         self,
         group_name: str,
         member: str,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        weekdays: Optional[dict] = None,
         session_identity: Optional[str] = None,
         session: Optional[sqlalchemy.orm.session.Session] = None,
     ) -> dict:
@@ -443,7 +454,16 @@ class Db(object):
         dict
 
         """
-        q = "select group_member_add('{0}', '{1}')".format(group_name, member)
+        start_date = f"'{start_date}'" if start_date else "null"
+        end_date = f"'{end_date}'" if end_date else "null"
+        weekdays = f"'{json.dumps(weekdays)}'" if weekdays else "null"
+        q = "select group_member_add('{0}', '{1}', {2}, {3}, {4})".format(
+            group_name,
+            member,
+            start_date,
+            end_date,
+            weekdays,
+        )
         return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
     def group_member_remove(
