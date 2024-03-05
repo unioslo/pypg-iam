@@ -1,4 +1,3 @@
-
 """This package provides a Db class, which is a thin wrapper around the pg-iam
 database system. The class provides sqlalchemy objects, and instance methods
 for calling database functions."""
@@ -515,6 +514,87 @@ class Db(object):
         """
         g = 't' if grants else 'f'
         q = "select group_capabilities('{0}', '{1}')".format(group_name, g)
+        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+
+    def institution_group_add(
+            self,
+            institution: str,
+            group_name: str,
+            session_identity: Optional[str] = None,
+            session: Optional[sqlalchemy.orm.session.Session] = None,
+        ) -> dict:
+        """
+        Affiliate a group to an institution. An institution can be
+        identified by either:
+
+        1) institution_name
+        2) institution_group
+
+        Note: internally, pg-iam adds instituitions to groups via their
+        institution group.
+
+        Parameters
+        ----------
+        institution: str, the institution to which the group should be
+            affiliated
+        group_name: str, the new affiliated group
+
+        Returns
+        -------
+        dict
+
+        """
+        q = "select institution_group_add('{0}', '{1}')".format(institution, group_name)
+        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+
+    def institution_group_remove(
+        self,
+        institution: str,
+        group_name: str,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+    ) -> dict:
+        """
+        Remove affilitation between a group and an institution. A group
+        can be identified by either:
+
+        1) person_id
+        2) user_name
+        3) group (person group, user group, or generic group)
+
+        Parameters
+        ----------
+        institution: str, the institution from which the group should be
+            unaffiliated
+        group_name: str, the existing group to unaffiliate
+
+        Returns
+        -------
+        dict
+
+        """
+        q = "select institution_group_remove('{0}', '{1}')".format(institution, group_name)
+        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+
+    def institution_groups(
+        self,
+        institution: str,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+    ) -> dict:
+        """
+        Get the affiliation graph of institution.
+
+        Parameters
+        ----------
+        institution: str
+
+        Returns
+        -------
+        dict
+
+        """
+        q = "select institution_groups('{0}')".format(institution)
         return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
     def capability_grant_rank_set(
