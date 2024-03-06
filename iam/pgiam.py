@@ -597,6 +597,95 @@ class Db(object):
         q = "select institution_groups('{0}')".format(institution)
         return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
+    def institution_member_add(
+        self,
+        institution: str,
+        member: str,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+    ) -> dict:
+        """
+        Add a new member to an institution. A new member can be
+        identified by either:
+
+        1) person_id
+        2) user_name
+        3) group (person group, user group, or generic group)
+
+        If a new member is identified using #1, then pg-iam
+        will find their person group, and add it as a member.
+        If #2 is used, then pg-iam will find the user group and
+        add it as a member. In case #3, if a person or user group
+        is given, then it is functionally equivalent to #1 and #2.
+        When a generic group is provided, then the group becomes
+        a member of another group (along with its members, transitively).
+
+        Note: internally, pg-iam adds persons to institutions via their
+        person group, and users to institutions via their user groups.
+
+        Parameters
+        ----------
+        institution: str, the institution to which the member should be added
+        member: str, the new member
+
+        Returns
+        -------
+        dict
+
+        """
+        q = "select institution_member_add('{0}', '{1}')".format(institution, member)
+        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+
+    def institution_member_remove(
+        self,
+        institution: str,
+        member: str,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+    ) -> dict:
+        """
+        Remove a member from an institution. A member can be identified
+        by either:
+
+        1) person_id
+        2) user_name
+        3) group (person group, user group, or generic group)
+
+        Parameters
+        ----------
+        institution: str, the institution from which the member should be
+            removed
+        group_name: str, the existing member to remove
+
+        Returns
+        -------
+        dict
+
+        """
+        q = "select institution_member_remove('{0}', '{1}')".format(institution, member)
+        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+
+    def institution_members(
+        self,
+        institution: str,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+    ) -> dict:
+        """
+        Get the membership graph of institution.
+
+        Parameters
+        ----------
+        institution: str
+
+        Returns
+        -------
+        dict
+
+        """
+        q = "select institution_members('{0}')".format(institution)
+        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+
     def project_group_add(
         self,
         project: str,
