@@ -767,6 +767,26 @@ class Db(object):
         q = "select project_groups('{0}')".format(project)
         return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
+    def project_institutions(self,
+        project: str,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+    ) -> dict:
+        """
+        Get the institution graph of project.
+
+        Parameters
+        ----------
+        project: str
+
+        Returns
+        -------
+        dict
+
+        """
+        q = "select project_institutions('{0}')".format(institution)
+        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+
     def capability_grant_rank_set(
         self,
         grant_id: str,
