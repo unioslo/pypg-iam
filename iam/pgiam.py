@@ -530,9 +530,6 @@ class Db(object):
         1) institution_name
         2) institution_group
 
-        Note: internally, pg-iam adds groups to institutions via their
-        institution group.
-
         Parameters
         ----------
         institution: str, the institution to which the group should be
