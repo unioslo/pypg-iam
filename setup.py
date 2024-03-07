@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='pypg-iam',
-    version='0.7.4',
+    version='0.7.5',
     description='python library for pg-iam',
     author='Leon du Toit, Milen Kouylekov',
     author_email='dutoit.leon@gmail.com',
