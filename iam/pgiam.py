@@ -10,7 +10,7 @@ from typing import Union, Optional, ContextManager
 
 import sqlalchemy
 
-from sqlalchemy import MetaData, create_engine, select
+from sqlalchemy import MetaData, create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool
 
