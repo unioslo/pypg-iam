@@ -388,7 +388,7 @@ class Db(object):
         if filter_memberships or client_timestamp:
             args = f"{args}, true"
         if client_timestamp:
-            args = f"{args}, {client_timestamp}"
+            args = f"{args}, '{client_timestamp}'"
         q = "select group_members({0})".format(args)
         return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
