@@ -10,7 +10,7 @@ from typing import Union, Optional, ContextManager
 
 import sqlalchemy
 
-from sqlalchemy import MetaData, create_engine
+from sqlalchemy import MetaData, create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool
 
@@ -384,13 +384,12 @@ class Db(object):
         dict
 
         """
-        memberships_filtered = "true" if (filter_memberships or client_timestamp) else "false"
-        client_timestamp = f"'{client_timestamp}'" if client_timestamp else "null"
-        q = "select group_members('{0}', {1}, {2})".format(
-            group_name,
-            memberships_filtered,
-            client_timestamp
-        )
+        args = f"'{group_name}'"
+        if filter_memberships or client_timestamp:
+            args = f"{args}, true"
+        if client_timestamp:
+            args = f"{args}, {client_timestamp}"
+        q = "select group_members({0})".format(args)
         return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
     def group_moderators(
