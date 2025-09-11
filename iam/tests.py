@@ -222,7 +222,10 @@ class TestPgIam(object):
                     'capability_grant_http_method': 'HEAD',
                     'capability_grant_rank': 1,
                     'capability_grant_uri_pattern': '/files/export$',
-                    'capability_grant_required_groups': [_in_group3, _in_group4]
+                    'capability_grant_required_groups': [_in_group3, _in_group4],
+                    'capability_grant_required_attributes': {
+                        'required_claims': ['lol'],
+                    },
                 },
             ]
             print('grant sync 1: \n')
@@ -236,9 +239,11 @@ class TestPgIam(object):
             gs = gs1
             g_rank_idx = 7
             g_req_gr_idx = 9
+            g_req_attr_idx = 10
             assert len(gs) == 2
             assert (gs[0][g_rank_idx] == 1 and gs[0][g_req_gr_idx] == ['self', 'moderator'])
             assert (gs[1][g_rank_idx] == 1 and gs[1][g_req_gr_idx] == [_in_group3, _in_group4])
+            assert gs[1][g_req_attr_idx] == {'required_claims': ['lol']}
 
             # test changing groups, ranks, and introducing a new grant
             grants2 = [
