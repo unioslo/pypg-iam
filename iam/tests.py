@@ -201,6 +201,33 @@ class TestPgIam(object):
             assert (len(capabilities[2][group_col_idx]) == 2
                     and capabilities[2][group_col_idx] == [_in_group1, '{0}-group'.format(_in_uname)])
 
+            # deletion of capabilities that are no longer in the
+            # reference data
+
+            names3 = [
+                {
+                    'capability_name': 'test1',
+                    'capability_required_groups': [_in_group1],
+                    'capability_lifetime': 10,
+                    'capability_description': 'allows one thing',
+                    'capability_hostnames': [],
+                },
+                {
+                    'capability_name': 'test2',
+                    'capability_required_groups': [_in_group2],
+                    'capability_lifetime': 600,
+                    'capability_description': 'allows another thing',
+                    'capability_hostnames': [],
+                },
+            ]
+
+            print(self.db.capabilities_http_sync(names3))
+
+            caps3 = self.db.exec_sql(
+                'select * from capabilities_http',
+            )
+            assert len(caps3) == 2
+
             # grants
             grants1 = [
                 {

@@ -919,15 +919,16 @@ class Db(object):
 
         Returns
         -------
-        bool
+        dict
 
         """
-        res = True
         required_keys = ['capability_name', 'capability_hostnames', 'capability_required_groups',
                          'capability_lifetime', 'capability_description']
         json_columns = ['capability_default_claims', 'capability_required_attributes',
                         'capability_metadata']
+        incoming_names = []
         for capability in capabilities:
+            incoming_names.append(capability.get("capability_name"))
             input_keys = capability.keys()
             for key in required_keys:
                 if key not in input_keys:
@@ -935,17 +936,28 @@ class Db(object):
                     raise Exception(m)
         table_columns = list(map(lambda x: str(x).replace('capabilities_http.', ''),
                                  self.tables.capabilities_http.columns))[2:]
+
+        # find existing capabilities
+        existing_names = []
+        with session_scope(self.engine, session_identity) as session:
+            results = session.execute('select capability_name from capabilities_http').fetchall()
+            for result in results:
+                existing_names.append(result[0])
+
+        # calculate work to be done
+        inserts = set(incoming_names).difference(existing_names)
+        updates = set(incoming_names).intersection(existing_names)
+        deletes = set(existing_names).difference(incoming_names)
+
         with session_scope(self.engine, session_identity) as session:
             for capability in capabilities:
-                exists_query = 'select count(1) from capabilities_http where capability_name = :capability_name'
-                exists = session.execute(exists_query, capability).fetchone()[0]
                 input_keys = capability.keys()
                 for column in table_columns:
                     if column in json_columns and column in input_keys:
                         capability[column] = json.dumps(capability[column])
                     if column not in input_keys:
                         capability[column] = None
-                if exists:
+                if capability.get("capability_name") in updates:
                     update_query = """
                         update capabilities_http set
                             capability_hostnames = :capability_hostnames,
@@ -960,7 +972,7 @@ class Db(object):
                             capability_metadata = :capability_metadata
                         where capability_name = :capability_name"""
                     session.execute(update_query, capability)
-                else:
+                elif capability.get("capability_name") in inserts:
                     insert_query = """
                         insert into capabilities_http
                             (capability_name,
@@ -987,7 +999,17 @@ class Db(object):
                              :capability_group_existence_check,
                              :capability_metadata)"""
                     session.execute(insert_query, capability)
-        return res
+            if deletes:
+                session.execute(
+                    "delete from capabilities_http where capability_name in :deletes",
+                    {"deletes": tuple(deletes)}
+                )
+
+        return {
+            "inserts": list(inserts),
+            "updates": list(updates),
+            "deletes": list(deletes),
+        }
 
     def capabilities_http_grants_sync(
         self,
