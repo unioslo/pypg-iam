@@ -855,9 +855,9 @@ class Db(object):
     ) -> dict:
         """
         Synchronise a list of capabilities to the capabilities_http table,
-        replacing any existing entries with the same names, and adding
-        any entries which do not exist. There is no auto deletion - since
-        that would cascade to grants.
+        replacing any existing entries with the same names, adding
+        any entries which do not exist, and removing any entries which are
+        no longer in the reference data.
 
         Semantics: over-write or append, atomically.
 
