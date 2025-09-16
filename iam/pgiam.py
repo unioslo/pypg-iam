@@ -1200,12 +1200,14 @@ class Db(object):
                             existing_names.append(result[0])
                         deletes = set(existing_names).difference(incoming_names)
                         if deletes:
-                            session.execute(
-                                "delete from capabilities_http_grants \
-                                 where capability_grant_name in :deletes",
-                                {"deletes": tuple(deletes)}
-                            )
-                            work_done["deletes"].extend(list(deletes))
+                            for name in deletes:
+                                grant_id = session.execute(
+                                    'select capability_grant_id from capabilities_http_grants \
+                                     where capability_grant_name = :name',
+                                    {"name": name}
+                                ).fetchone()[0]
+                                self.capability_grant_delete(grant_id, session_identity, session)
+                                work_done["deletes"].append(name)
         return work_done
 
     def capabilities_http_grants_group_add(
