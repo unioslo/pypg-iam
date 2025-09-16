@@ -1099,6 +1099,8 @@ class Db(object):
                             grant[column] = True
                         else:
                             grant[column] = None
+                if static_grants:
+                    grant["capability_grant_static"] = True
                 if exists:
                     update_query = """
                         update capabilities_http_grants set
@@ -1114,7 +1116,8 @@ class Db(object):
                             capability_grant_end_date = :capability_grant_end_date,
                             capability_grant_max_num_usages = :capability_grant_max_num_usages,
                             capability_grant_group_existence_check = :capability_grant_group_existence_check,
-                            capability_grant_metadata = :capability_grant_metadata
+                            capability_grant_metadata = :capability_grant_metadata,
+                            capability_grant_static = :capability_grant_static
                         where capability_grant_name = :capability_grant_name"""
                     session.execute(update_query, grant)
                     # get current grant_id from name
@@ -1140,7 +1143,8 @@ class Db(object):
                              capability_grant_end_date,
                              capability_grant_max_num_usages,
                              capability_grant_group_existence_check,
-                             capability_grant_metadata)
+                             capability_grant_metadata,
+                             capability_grant_static)
                         values
                             (:capability_names_allowed,
                              :capability_grant_name,
@@ -1155,7 +1159,8 @@ class Db(object):
                              :capability_grant_end_date,
                              :capability_grant_max_num_usages,
                              :capability_grant_group_existence_check,
-                             :capability_grant_metadata)"""
+                             :capability_grant_metadata,
+                             :capability_grant_static)"""
                     session.execute(insert_query, grant)
                     # get current grant_id from name
                     curr_grant_id = session.execute('select capability_grant_id from capabilities_http_grants \
@@ -1179,7 +1184,8 @@ class Db(object):
                         results = session.execute(
                             "select capability_grant_name from capabilities_http_grants \
                              where capability_grant_namespace = :namespace \
-                             and capability_grant_http_method = :method",
+                             and capability_grant_http_method = :method \
+                             and capability_grant_static = 't'",
                             {
                                 "namespace": namespace,
                                 "method": method,
