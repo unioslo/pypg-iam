@@ -1036,6 +1036,11 @@ class Db(object):
         So if the call fails for new entries, the caller should just try again,
         since calls are idempotent.
 
+        If static_grants=True, then all grants will be marked as static using the
+        capability_grant_static attribute. This will also trigger deletion of grants
+        that are no longer referenced in the reference set. Deletions are done per
+        namespace, per HTTP method.
+
         Parameters
         ----------
         grants: list of dicts
