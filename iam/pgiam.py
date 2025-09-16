@@ -1015,6 +1015,7 @@ class Db(object):
         self,
         grants: list,
         session_identity: Optional[str] = None,
+        static_grants: bool = False,
     ) -> dict:
         """
         Synchronise a list of grants to the capabilities_http_grants table,
@@ -1050,21 +1051,36 @@ class Db(object):
 
         Returns
         -------
-        bool
+        dict
 
         """
-        res = True
+        work_done = {
+            "inserts": [],
+            "updates": [],
+            "deletes": [],
+        }
         required_keys = ['capability_names_allowed', 'capability_grant_name',
                          'capability_grant_hostnames', 'capability_grant_namespace',
                          'capability_grant_http_method', 'capability_grant_rank',
                          'capability_grant_uri_pattern', 'capability_grant_required_groups']
         json_columns = ['capability_grant_required_attributes', 'capability_grant_metadata']
+
+        grant_sets = {}
         for grant in grants:
             input_keys = grant.keys()
             for key in required_keys:
                 if key not in input_keys:
                     m = 'missing required key: {0} in grant, cannot do sync without error'.format(key)
                     raise Exception(m)
+            namespace = grant.get("capability_grant_namespace")
+            method = grant.get("capability_grant_http_method")
+            name = grant.get("capability_grant_name")
+            if not grant_sets.get(namespace):
+                grant_sets[namespace] = {}
+            if not grant_sets.get(namespace).get(method):
+                grant_sets[namespace][method] = []
+            grant_sets[namespace][method].append(name)
+
         table_columns = list(map(lambda x: str(x).replace('capabilities_http_grants.', ''),
                                  self.tables.capabilities_http_grants.columns))[2:]
         new_grants = []
@@ -1107,6 +1123,7 @@ class Db(object):
                                                      {'name': grant['capability_grant_name']}).fetchone()[0]
                     session.execute("select capability_grant_rank_set('{0}', '{1}')".format(
                         curr_grant_id, grant['capability_grant_rank']))
+                    work_done["updates"].append(grant.get("capability_grant_name"))
                 else:
                     insert_query = """
                         insert into capabilities_http_grants
@@ -1145,11 +1162,40 @@ class Db(object):
                                                      where capability_grant_name = :name',
                                                      {'name': grant['capability_grant_name']}).fetchone()[0]
                     new_grants.append({'id': curr_grant_id, 'rank' :grant['capability_grant_rank']})
+                    work_done["inserts"].append(grant.get("capability_grant_name"))
+
+        # set the rank values
         with session_scope(self.engine, session_identity) as session:
             for grant in new_grants:
                 session.execute("select capability_grant_rank_set('{0}', '{1}')".format(
                     grant['id'], grant['rank']))
-        return res
+
+        if static_grants: # clean up old grants
+            for namespace, grant_set in grant_sets.items():
+                for method, incoming_names in grant_set.items():
+                    existing_names = []
+                    # fetch the relevant set from the DB
+                    with session_scope(self.engine, session_identity) as session:
+                        results = session.execute(
+                            "select capability_grant_name from capabilities_http_grants \
+                             where capability_grant_namespace = :namespace \
+                             and capability_grant_http_method = :method",
+                            {
+                                "namespace": namespace,
+                                "method": method,
+                            }
+                        )
+                        for result in results:
+                            existing_names.append(result[0])
+                        deletes = set(existing_names).difference(incoming_names)
+                        if deletes:
+                            session.execute(
+                                "delete from capabilities_http_grants \
+                                 where capability_grant_name in :deletes",
+                                {"deletes": tuple(deletes)}
+                            )
+                            work_done["deletes"].extend(list(deletes))
+        return work_done
 
     def capabilities_http_grants_group_add(
         self,
