@@ -257,7 +257,7 @@ class TestPgIam(object):
                 },
             ]
             print('grant sync 1: \n')
-            print(self.db.capabilities_http_grants_sync(grants1))
+            print(self.db.capabilities_http_grants_sync(grants1, static_grants=True))
             # check the db, then add a new sync, and check the result
             gs1 = self.db.exec_sql(
                 'select * from capabilities_http_grants where capability_grant_name in (:gn1, :gn2)',
@@ -308,7 +308,7 @@ class TestPgIam(object):
                 },
             ]
             print('grant sync 2: \n')
-            print(self.db.capabilities_http_grants_sync(grants2))
+            print(self.db.capabilities_http_grants_sync(grants2, static_grants=True))
             gs2 = self.db.exec_sql(
                 'select * from capabilities_http_grants where capability_grant_name in (:gn1, :gn2, :gn3)',
                 {'gn1': grname1, 'gn2': grname2, 'gn3': grname3},
@@ -395,11 +395,11 @@ class TestPgIam(object):
             ]
 
             print('grant sync 3: \n')
-            print(self.db.capabilities_http_grants_sync(grants3))
+            print(self.db.capabilities_http_grants_sync(grants3, static_grants=True))
 
             # then sync a subset, and check that the correct ones are deleted
 
-            grants3 = [
+            grants4 = [
                 {
                     'capability_grant_name': grname1,
                     'capability_names_allowed': ['test1'],
@@ -434,7 +434,7 @@ class TestPgIam(object):
             ]
 
             print('grant sync 4: \n')
-            results = self.db.capabilities_http_grants_sync(grants3, static_grants=True)
+            results = self.db.capabilities_http_grants_sync(grants4, static_grants=True)
             print(results)
 
             gs = self.db.exec_sql('select * from capabilities_http_grants')
