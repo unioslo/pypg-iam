@@ -74,7 +74,8 @@ class TestPgIam(object):
         grname2 = 'grant_2'
         grname3 = 'grant_3'
         grname4 = 'grant_4'
-        grants = [grname1, grname2, grname3, grname4]
+        grname5 = 'grant_5'
+        grants = [grname1, grname2, grname3, grname4, grname5]
 
         try:
             # create a person, get the person ID
@@ -334,6 +335,114 @@ class TestPgIam(object):
                 {'gn1': grname1, 'gn2': grname2, 'gn3': grname3}
             )
             assert gs[0][g_rank_idx] == 1 # reset automatically
+
+            # test static grant sync
+
+            # first add some more grants
+
+            grants3 = [
+                {
+                    'capability_grant_name': grname1,
+                    'capability_names_allowed': ['test1'],
+                    'capability_grant_hostnames': ['my.api.com'],
+                    'capability_grant_namespace': 'files',
+                    'capability_grant_http_method': 'PUT',
+                    'capability_grant_rank': 1,
+                    'capability_grant_uri_pattern': '/groups/[a-zA-Z0-9]',
+                    'capability_grant_required_groups': ['self', 'moderator'],
+                    'capability_grant_group_existence_check': False
+                },
+                {
+                    'capability_grant_name': grname2,
+                    'capability_names_allowed': ['test1'],
+                    'capability_grant_hostnames': ['my.api.com'],
+                    'capability_grant_namespace': 'files',
+                    'capability_grant_http_method': 'HEAD',
+                    'capability_grant_rank': 1,
+                    'capability_grant_uri_pattern': '/files/export$',
+                    'capability_grant_required_groups': [_in_group1, _in_group2]
+                },
+                {
+                    'capability_grant_name': grname3,
+                    'capability_names_allowed': ['test1'],
+                    'capability_grant_hostnames': ['my.api.com'],
+                    'capability_grant_namespace': 'files',
+                    'capability_grant_http_method': 'HEAD',
+                    'capability_grant_rank': 2,
+                    'capability_grant_uri_pattern': '/files/export/meh$',
+                    'capability_grant_required_groups': [_in_group1, _in_group2]
+                },
+                {
+                    'capability_grant_name': grname4,
+                    'capability_names_allowed': ['test1'],
+                    'capability_grant_hostnames': ['my.api.com'],
+                    'capability_grant_namespace': 'files/import',
+                    'capability_grant_http_method': 'PUT',
+                    'capability_grant_rank': 1,
+                    'capability_grant_uri_pattern': '/files/import$',
+                    'capability_grant_required_groups': [_in_group1, _in_group2]
+                },
+                {
+                    'capability_grant_name': grname5,
+                    'capability_names_allowed': ['test1'],
+                    'capability_grant_hostnames': ['my.api.com'],
+                    'capability_grant_namespace': 'files/import',
+                    'capability_grant_http_method': 'PUT',
+                    'capability_grant_rank': 2,
+                    'capability_grant_uri_pattern': '/files/import/lol$',
+                    'capability_grant_required_groups': [_in_group1, _in_group2]
+                },
+            ]
+
+            print('grant sync 3: \n')
+            print(self.db.capabilities_http_grants_sync(grants3))
+
+            # then sync a subset, and check that the correct ones are deleted
+
+            grants3 = [
+                {
+                    'capability_grant_name': grname1,
+                    'capability_names_allowed': ['test1'],
+                    'capability_grant_hostnames': ['my.api.com'],
+                    'capability_grant_namespace': 'files',
+                    'capability_grant_http_method': 'PUT',
+                    'capability_grant_rank': 1,
+                    'capability_grant_uri_pattern': '/groups/[a-zA-Z0-9]',
+                    'capability_grant_required_groups': ['self', 'moderator'],
+                    'capability_grant_group_existence_check': False
+                },
+                {
+                    'capability_grant_name': grname2,
+                    'capability_names_allowed': ['test1'],
+                    'capability_grant_hostnames': ['my.api.com'],
+                    'capability_grant_namespace': 'files',
+                    'capability_grant_http_method': 'HEAD',
+                    'capability_grant_rank': 1,
+                    'capability_grant_uri_pattern': '/files/export$',
+                    'capability_grant_required_groups': [_in_group1, _in_group2]
+                },
+                {
+                    'capability_grant_name': grname5,
+                    'capability_names_allowed': ['test1'],
+                    'capability_grant_hostnames': ['my.api.com'],
+                    'capability_grant_namespace': 'files/import',
+                    'capability_grant_http_method': 'PUT',
+                    'capability_grant_rank': 1,
+                    'capability_grant_uri_pattern': '/files/import/lol$',
+                    'capability_grant_required_groups': [_in_group1, _in_group2]
+                },
+            ]
+
+            print('grant sync 4: \n')
+            results = self.db.capabilities_http_grants_sync(grants3, static_grants=True)
+            print(results)
+
+            gs = self.db.exec_sql('select * from capabilities_http_grants')
+            assert len(gs) == 3
+            existing_names = list(map(lambda x: x[3], gs))
+            deleted_names = results.get("deletes")
+            # confirm deleted as expected
+            assert set(deleted_names).intersection(existing_names) == set()
 
             # informational
             print(self.db.person_capabilities(pid))
