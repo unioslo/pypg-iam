@@ -1,11 +1,15 @@
 [tool.poetry]
-name = "iam"
+name = "pypg-iam"
 version = "0.7.4"
 description = "Python package for interacting with pg-iam"
 authors = [
     "Leon du Toit <l.c.d.toit@usit.uio.no>",
     "Milen Kouylekov <milen.kouylekov@usit.uio.no>",
 ]
+license = "BSD-3-Clause"
+readme = "README.md"
+repository = "https://github.com/unioslo/pypg-iam"
+packages = [{include = "iam"}]
 
 [tool.poetry.dependencies]
 python = "^3.9"
