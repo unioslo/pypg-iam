@@ -827,6 +827,28 @@ class Db(object):
         q = "select capability_grant_delete('{0}')".format(grant_id)
         return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
 
+    def capability_grants_delete(
+        self,
+        namespace: str,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+    ) -> None:
+        """
+        Delete all grants for the given namespace. The namespace
+        can also be a pattern, such as `files%`.
+
+        Parameters
+        ----------
+        namespace: str
+
+        Returns
+        -------
+        None
+
+        """
+        q = f"delete from capabilities_http_grants where capability_grant_namespace like '{namespace}'"
+        return self.exec_sql(q, session_identity=session_identity, session=session, fetch=False)
+
     def capability_instance_get(
         self,
         instance_id: str,

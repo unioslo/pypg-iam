@@ -444,6 +444,12 @@ class TestPgIam(object):
             # confirm deleted as expected
             assert set(deleted_names).intersection(existing_names) == set()
 
+            # test deleting a namespace
+
+            self.db.capability_grants_delete('files')
+            gs = self.db.exec_sql('select * from capabilities_http_grants')
+            assert len(gs) == 1
+
             # informational
             print(self.db.person_capabilities(pid))
             print(self.db.person_access(pid))
