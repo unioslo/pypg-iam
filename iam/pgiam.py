@@ -1202,9 +1202,24 @@ class Db(object):
                 session.execute("select capability_grant_rank_set('{0}', '{1}')".format(
                     grant['id'], grant['rank']))
 
+        def with_all_http_methods(grant_set: dict) -> list:
+            """
+            If incoming static grants have removed all grants
+            associated with an HTTP method, then we have to
+            make sure that we search for that method in the DB
+            when identifying which grants to delete.
+
+            """
+            methods = ["OPTIONS", "GET", "PUT", "POST", "PATCH", "DELETE"]
+            grant_methods = grant_set.keys()
+            for method in methods:
+                if method not in grant_methods:
+                    grant_set[method] = []
+            return grant_set
+
         if static_grants: # clean up old grants
             for namespace, grant_set in grant_sets.items():
-                for method, incoming_names in grant_set.items():
+                for method, incoming_names in with_all_http_methods(grant_set).items():
                     existing_names = []
                     # fetch the relevant set from the DB
                     with session_scope(self.engine, session_identity) as session:
