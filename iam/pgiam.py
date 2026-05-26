@@ -5,24 +5,86 @@ for calling database functions."""
 import json
 
 from contextlib import contextmanager
-from collections import namedtuple
-from typing import Union, Optional, ContextManager
+from typing import Union, Optional, ContextManager, NamedTuple
 
 import sqlalchemy
 
-from sqlalchemy import MetaData, create_engine
+from sqlalchemy import MetaData, create_engine, Table
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool
 
+from ._constants import (
+    # Validation constants
+    CAPABILITIES_REQUIRED_KEYS,
+    CAPABILITIES_JSON_COLUMNS,
+    CAPABILITIES_TABLE_COLUMNS,
+    GRANTS_REQUIRED_KEYS,
+    GRANTS_JSON_COLUMNS,
+    GRANTS_TABLE_COLUMNS,
+    # Complex SQL queries
+    CAPABILITIES_HTTP_UPDATE_QUERY,
+    CAPABILITIES_HTTP_INSERT_QUERY,
+    CAPABILITIES_HTTP_DELETE_QUERY,
+    GRANTS_EXISTS_QUERY,
+    GRANTS_GET_ID_FROM_NAME_QUERY,
+    GRANTS_UPDATE_QUERY,
+    GRANTS_INSERT_QUERY,
+    GRANTS_FIND_EXISTING_QUERY,
+    # Database function queries
+    QUERY_PERSON_GROUPS,
+    QUERY_PERSON_CAPABILITIES,
+    QUERY_PERSON_ACCESS,
+    QUERY_USER_GROUPS,
+    QUERY_USER_MODERATORS,
+    QUERY_USER_CAPABILITIES,
+    QUERY_GROUP_MEMBERS,
+    QUERY_GROUP_MODERATORS,
+    QUERY_GROUP_MEMBER_ADD,
+    QUERY_GROUP_MEMBER_REMOVE,
+    QUERY_GROUP_CAPABILITIES,
+    QUERY_INSTITUTION_GROUP_ADD,
+    QUERY_INSTITUTION_GROUP_REMOVE,
+    QUERY_INSTITUTION_GROUPS,
+    QUERY_INSTITUTION_MEMBER_ADD,
+    QUERY_INSTITUTION_MEMBER_REMOVE,
+    QUERY_INSTITUTION_MEMBERS,
+    QUERY_PROJECT_GROUP_ADD,
+    QUERY_PROJECT_GROUP_REMOVE,
+    QUERY_PROJECT_GROUPS,
+    QUERY_PROJECT_INSTITUTIONS,
+    QUERY_CAPABILITIES_HTTP_LIST,
+    QUERY_CAPABILITY_GRANT_RANK_SET,
+    QUERY_CAPABILITY_GRANT_DELETE,
+    QUERY_CAPABILITY_GRANTS_DELETE,
+    QUERY_CAPABILITY_INSTANCE_GET,
+    QUERY_CAPABILITY_GRANT_GROUP_ADD,
+    QUERY_CAPABILITY_GRANT_GROUP_REMOVE,
+)
+from ._util import (
+    dsn_from_config,
+    with_all_http_methods,
+)
+
+
+class IamTables(NamedTuple):
+    """SQLAlchemy table objects for the pg-iam database schema."""
+
+    persons: Table
+    users: Table
+    groups: Table
+    group_memberships: Table
+    group_moderators: Table
+    capabilities_http: Table
+    capabilities_http_instances: Table
+    capabilities_http_grants: Table
+    audit_log_objects: Table
+    audit_log_relations: Table
+
 
 def iam_engine(dsn: str, require_ssl: bool = False) -> sqlalchemy.engine.Engine:
-    args = {} if not require_ssl else {'sslmode': 'require'}
+    args = {} if not require_ssl else {"sslmode": "require"}
     engine = create_engine(dsn, connect_args=args, poolclass=QueuePool)
     return engine
-
-
-def dsn_from_config(config: dict) -> str:
-    return f"postgresql://{config['user']}:{config['pw']}@{config['host']}:5432/{config['dbname']}"
 
 
 @contextmanager
@@ -35,7 +97,7 @@ def session_scope(
     session = Session()
     try:
         if session_identity:
-            q = 'set session "session.identity" = \'{0}\''.format(session_identity)
+            q = "set session \"session.identity\" = '{0}'".format(session_identity)
             session.execute(q)
         yield session
         session.commit()
@@ -47,7 +109,6 @@ def session_scope(
 
 
 class Db(object):
-
     """
     Reflect the pg-iam database to sqlalchemy objects,
     provide helper methods for calling database functions,
@@ -148,32 +209,20 @@ class Db(object):
         if not engine:
             engine = iam_engine(dsn_from_config(config))
         self.engine = engine
-        self.meta = MetaData(engine)
-        self.meta.reflect()
-        self.tables = namedtuple(
-            'tables',
-            [
-                'persons',
-                'users',
-                'groups',
-                'group_memberships',
-                'group_moderators',
-                'capabilities_http',
-                'capabilities_http_grants',
-                'audit_log_objects',
-                'audit_log_relations',
-            ]
+        self.meta = MetaData()
+        self.meta.reflect(bind=engine)
+        self.tables = IamTables(
+            persons=self.meta.tables["persons"],
+            users=self.meta.tables["users"],
+            groups=self.meta.tables["groups"],
+            group_memberships=self.meta.tables["group_memberships"],
+            group_moderators=self.meta.tables["group_moderators"],
+            capabilities_http=self.meta.tables["capabilities_http"],
+            capabilities_http_instances=self.meta.tables["capabilities_http_instances"],
+            capabilities_http_grants=self.meta.tables["capabilities_http_grants"],
+            audit_log_objects=self.meta.tables["audit_log_objects"],
+            audit_log_relations=self.meta.tables["audit_log_relations"],
         )
-        self.tables.persons = self.meta.tables['persons']
-        self.tables.users = self.meta.tables['users']
-        self.tables.groups = self.meta.tables['groups']
-        self.tables.group_memberships = self.meta.tables['group_memberships']
-        self.tables.group_moderators = self.meta.tables['group_moderators']
-        self.tables.capabilities_http = self.meta.tables['capabilities_http']
-        self.tables.capabilities_http_instances = self.meta.tables['capabilities_http_instances']
-        self.tables.capabilities_http_grants = self.meta.tables['capabilities_http_grants']
-        self.tables.audit_log_objects = self.meta.tables['audit_log_objects']
-        self.tables.audit_log_relations = self.meta.tables['audit_log_objects']
 
     def exec_sql(
         self,
@@ -210,10 +259,10 @@ class Db(object):
         """
         res, out = True, None
         if session:
-            data = session.execute(sql, params)
+            data = session.execute(sqlalchemy.text(sql), params)
         else:
             with session_scope(self.engine, session_identity) as session:
-                data = session.execute(sql, params)
+                data = session.execute(sqlalchemy.text(sql), params)
                 columns = data.keys() if fetch else None
         if fetch:
             res = data.fetchall()
@@ -246,8 +295,11 @@ class Db(object):
         dict
 
         """
-        q = "select person_groups('{0}')".format(person_id)
-        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+        return self.exec_sql(
+            QUERY_PERSON_GROUPS.format(person_id),
+            session_identity=session_identity,
+            session=session,
+        )[0][0]
 
     def person_capabilities(
         self,
@@ -270,9 +322,12 @@ class Db(object):
         dict
 
         """
-        g = 't' if grants else 'f'
-        q = "select person_capabilities('{0}', '{1}')".format(person_id, g)
-        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+        g = "t" if grants else "f"
+        return self.exec_sql(
+            QUERY_PERSON_CAPABILITIES.format(person_id, g),
+            session_identity=session_identity,
+            session=session,
+        )[0][0]
 
     def person_access(
         self,
@@ -294,8 +349,11 @@ class Db(object):
         dict
 
         """
-        q = "select person_access('{0}')".format(person_id)
-        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+        return self.exec_sql(
+            QUERY_PERSON_ACCESS.format(person_id),
+            session_identity=session_identity,
+            session=session,
+        )[0][0]
 
     def user_groups(
         self,
@@ -315,8 +373,11 @@ class Db(object):
         dict
 
         """
-        q = "select user_groups('{0}')".format(user_name)
-        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+        return self.exec_sql(
+            QUERY_USER_GROUPS.format(user_name),
+            session_identity=session_identity,
+            session=session,
+        )[0][0]
 
     def user_moderators(
         self,
@@ -336,8 +397,11 @@ class Db(object):
         dict
 
         """
-        q = "select user_moderators('{0}')".format(user_name)
-        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+        return self.exec_sql(
+            QUERY_USER_MODERATORS.format(user_name),
+            session_identity=session_identity,
+            session=session,
+        )[0][0]
 
     def user_capabilities(
         self,
@@ -360,9 +424,12 @@ class Db(object):
         dict
 
         """
-        g = 't' if grants else 'f'
-        q = "select user_capabilities('{0}', '{1}')".format(user_name, g)
-        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+        g = "t" if grants else "f"
+        return self.exec_sql(
+            QUERY_USER_CAPABILITIES.format(user_name, g),
+            session_identity=session_identity,
+            session=session,
+        )[0][0]
 
     def group_members(
         self,
@@ -389,8 +456,11 @@ class Db(object):
             args = f"{args}, true"
         if client_timestamp:
             args = f"{args}, '{client_timestamp}'"
-        q = "select group_members({0})".format(args)
-        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+        return self.exec_sql(
+            QUERY_GROUP_MEMBERS.format(args),
+            session_identity=session_identity,
+            session=session,
+        )[0][0]
 
     def group_moderators(
         self,
@@ -410,8 +480,11 @@ class Db(object):
         dict
 
         """
-        q = "select group_moderators('{0}')".format(group_name)
-        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+        return self.exec_sql(
+            QUERY_GROUP_MODERATORS.format(group_name),
+            session_identity=session_identity,
+            session=session,
+        )[0][0]
 
     def group_member_add(
         self,
@@ -455,14 +528,17 @@ class Db(object):
         start_date = f"'{start_date}'" if start_date else "null"
         end_date = f"'{end_date}'" if end_date else "null"
         weekdays = f"'{json.dumps(weekdays)}'" if weekdays else "null"
-        q = "select group_member_add('{0}', '{1}', {2}, {3}, {4})".format(
-            group_name,
-            member,
-            start_date,
-            end_date,
-            weekdays,
-        )
-        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+        return self.exec_sql(
+            QUERY_GROUP_MEMBER_ADD.format(
+                group_name,
+                member,
+                start_date,
+                end_date,
+                weekdays,
+            ),
+            session_identity=session_identity,
+            session=session,
+        )[0][0]
 
     def group_member_remove(
         self,
@@ -489,12 +565,16 @@ class Db(object):
         dict
 
         """
-        q = "select group_member_remove('{0}', '{1}')".format(group_name, member)
-        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+        return self.exec_sql(
+            QUERY_GROUP_MEMBER_REMOVE.format(group_name, member),
+            session_identity=session_identity,
+            session=session,
+        )[0][0]
 
     def group_capabilities(
         self,
-        group_name, grants=True,
+        group_name,
+        grants=True,
         session_identity: Optional[str] = None,
         session: Optional[sqlalchemy.orm.session.Session] = None,
     ) -> dict:
@@ -511,17 +591,20 @@ class Db(object):
         dict
 
         """
-        g = 't' if grants else 'f'
-        q = "select group_capabilities('{0}', '{1}')".format(group_name, g)
-        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+        g = "t" if grants else "f"
+        return self.exec_sql(
+            QUERY_GROUP_CAPABILITIES.format(group_name, g),
+            session_identity=session_identity,
+            session=session,
+        )[0][0]
 
     def institution_group_add(
-            self,
-            institution: str,
-            group_name: str,
-            session_identity: Optional[str] = None,
-            session: Optional[sqlalchemy.orm.session.Session] = None,
-        ) -> dict:
+        self,
+        institution: str,
+        group_name: str,
+        session_identity: Optional[str] = None,
+        session: Optional[sqlalchemy.orm.session.Session] = None,
+    ) -> dict:
         """
         Affiliate a group to an institution. An institution can be
         identified by either:
@@ -540,8 +623,11 @@ class Db(object):
         dict
 
         """
-        q = "select institution_group_add('{0}', '{1}')".format(institution, group_name)
-        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+        return self.exec_sql(
+            QUERY_INSTITUTION_GROUP_ADD.format(institution, group_name),
+            session_identity=session_identity,
+            session=session,
+        )[0][0]
 
     def institution_group_remove(
         self,
@@ -569,8 +655,11 @@ class Db(object):
         dict
 
         """
-        q = "select institution_group_remove('{0}', '{1}')".format(institution, group_name)
-        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+        return self.exec_sql(
+            QUERY_INSTITUTION_GROUP_REMOVE.format(institution, group_name),
+            session_identity=session_identity,
+            session=session,
+        )[0][0]
 
     def institution_groups(
         self,
@@ -590,8 +679,11 @@ class Db(object):
         dict
 
         """
-        q = "select institution_groups('{0}')".format(institution)
-        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+        return self.exec_sql(
+            QUERY_INSTITUTION_GROUPS.format(institution),
+            session_identity=session_identity,
+            session=session,
+        )[0][0]
 
     def institution_member_add(
         self,
@@ -629,8 +721,11 @@ class Db(object):
         dict
 
         """
-        q = "select institution_member_add('{0}', '{1}')".format(institution, member)
-        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+        return self.exec_sql(
+            QUERY_INSTITUTION_MEMBER_ADD.format(institution, member),
+            session_identity=session_identity,
+            session=session,
+        )[0][0]
 
     def institution_member_remove(
         self,
@@ -658,8 +753,11 @@ class Db(object):
         dict
 
         """
-        q = "select institution_member_remove('{0}', '{1}')".format(institution, member)
-        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+        return self.exec_sql(
+            QUERY_INSTITUTION_MEMBER_REMOVE.format(institution, member),
+            session_identity=session_identity,
+            session=session,
+        )[0][0]
 
     def institution_members(
         self,
@@ -679,8 +777,11 @@ class Db(object):
         dict
 
         """
-        q = "select institution_members('{0}')".format(institution)
-        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+        return self.exec_sql(
+            QUERY_INSTITUTION_MEMBERS.format(institution),
+            session_identity=session_identity,
+            session=session,
+        )[0][0]
 
     def project_group_add(
         self,
@@ -710,8 +811,11 @@ class Db(object):
         dict
 
         """
-        q = "select project_group_add('{0}', '{1}')".format(project, group_name)
-        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+        return self.exec_sql(
+            QUERY_PROJECT_GROUP_ADD.format(project, group_name),
+            session_identity=session_identity,
+            session=session,
+        )[0][0]
 
     def project_group_remove(
         self,
@@ -739,8 +843,11 @@ class Db(object):
         dict
 
         """
-        q = "select project_group_remove('{0}', '{1}')".format(project, group_name)
-        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+        return self.exec_sql(
+            QUERY_PROJECT_GROUP_REMOVE.format(project, group_name),
+            session_identity=session_identity,
+            session=session,
+        )[0][0]
 
     def project_groups(
         self,
@@ -760,10 +867,14 @@ class Db(object):
         dict
 
         """
-        q = "select project_groups('{0}')".format(project)
-        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+        return self.exec_sql(
+            QUERY_PROJECT_GROUPS.format(project),
+            session_identity=session_identity,
+            session=session,
+        )[0][0]
 
-    def project_institutions(self,
+    def project_institutions(
+        self,
         project: str,
         session_identity: Optional[str] = None,
         session: Optional[sqlalchemy.orm.session.Session] = None,
@@ -780,8 +891,11 @@ class Db(object):
         dict
 
         """
-        q = "select project_institutions('{0}')".format(institution)
-        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+        return self.exec_sql(
+            QUERY_PROJECT_INSTITUTIONS.format(project),
+            session_identity=session_identity,
+            session=session,
+        )[0][0]
 
     def capability_grant_rank_set(
         self,
@@ -803,8 +917,11 @@ class Db(object):
         bool
 
         """
-        q = "select capability_grant_rank_set('{0}', '{1}')".format(grant_id, new_grant_rank)
-        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+        return self.exec_sql(
+            QUERY_CAPABILITY_GRANT_RANK_SET.format(grant_id, new_grant_rank),
+            session_identity=session_identity,
+            session=session,
+        )[0][0]
 
     def capability_grant_delete(
         self,
@@ -824,8 +941,11 @@ class Db(object):
         bool
 
         """
-        q = "select capability_grant_delete('{0}')".format(grant_id)
-        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+        return self.exec_sql(
+            QUERY_CAPABILITY_GRANT_DELETE.format(grant_id),
+            session_identity=session_identity,
+            session=session,
+        )[0][0]
 
     def capability_grants_delete(
         self,
@@ -846,8 +966,12 @@ class Db(object):
         None
 
         """
-        q = f"delete from capabilities_http_grants where capability_grant_namespace like '{namespace}'"
-        return self.exec_sql(q, session_identity=session_identity, session=session, fetch=False)
+        return self.exec_sql(
+            QUERY_CAPABILITY_GRANTS_DELETE.format(namespace),
+            session_identity=session_identity,
+            session=session,
+            fetch=False,
+        )
 
     def capability_instance_get(
         self,
@@ -867,8 +991,11 @@ class Db(object):
         dict
 
         """
-        q = "select capability_instance_get('{0}')".format(instance_id)
-        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+        return self.exec_sql(
+            QUERY_CAPABILITY_INSTANCE_GET.format(instance_id),
+            session_identity=session_identity,
+            session=session,
+        )[0][0]
 
     def capabilities_http_sync(
         self,
@@ -944,25 +1071,21 @@ class Db(object):
         dict
 
         """
-        required_keys = ['capability_name', 'capability_hostnames', 'capability_required_groups',
-                         'capability_lifetime', 'capability_description']
-        json_columns = ['capability_default_claims', 'capability_required_attributes',
-                        'capability_metadata']
         incoming_names = []
         for capability in capabilities:
             incoming_names.append(capability.get("capability_name"))
             input_keys = capability.keys()
-            for key in required_keys:
+            for key in CAPABILITIES_REQUIRED_KEYS:
                 if key not in input_keys:
-                    m = 'missing required key: {0} in capability, cannot do sync without error'.format(key)
+                    m = "missing required key: {0} in capability, cannot do sync without error".format(
+                        key
+                    )
                     raise Exception(m)
-        table_columns = list(map(lambda x: str(x).replace('capabilities_http.', ''),
-                                 self.tables.capabilities_http.columns))[2:]
 
         # find existing capabilities
         existing_names = []
         with session_scope(self.engine, session_identity) as session:
-            results = session.execute('select capability_name from capabilities_http').fetchall()
+            results = session.execute(sqlalchemy.text(QUERY_CAPABILITIES_HTTP_LIST)).fetchall()
             for result in results:
                 existing_names.append(result[0])
 
@@ -974,57 +1097,18 @@ class Db(object):
         with session_scope(self.engine, session_identity) as session:
             for capability in capabilities:
                 input_keys = capability.keys()
-                for column in table_columns:
-                    if column in json_columns and column in input_keys:
+                for column in CAPABILITIES_TABLE_COLUMNS:
+                    if column in CAPABILITIES_JSON_COLUMNS and column in input_keys:
                         capability[column] = json.dumps(capability[column])
                     if column not in input_keys:
                         capability[column] = None
                 if capability.get("capability_name") in updates:
-                    update_query = """
-                        update capabilities_http set
-                            capability_hostnames = :capability_hostnames,
-                            capability_default_claims = :capability_default_claims,
-                            capability_required_groups = :capability_required_groups,
-                            capability_required_attributes = :capability_required_attributes,
-                            capability_group_match_method = :capability_group_match_method,
-                            capability_lifetime = :capability_lifetime,
-                            capability_description = :capability_description,
-                            capability_expiry_date = :capability_expiry_date,
-                            capability_group_existence_check = :capability_group_existence_check,
-                            capability_metadata = :capability_metadata
-                        where capability_name = :capability_name"""
-                    session.execute(update_query, capability)
+                    session.execute(sqlalchemy.text(CAPABILITIES_HTTP_UPDATE_QUERY), capability)
                 elif capability.get("capability_name") in inserts:
-                    insert_query = """
-                        insert into capabilities_http
-                            (capability_name,
-                             capability_hostnames,
-                             capability_default_claims,
-                             capability_required_groups,
-                             capability_required_attributes,
-                             capability_group_match_method,
-                             capability_lifetime,
-                             capability_description,
-                             capability_expiry_date,
-                             capability_group_existence_check,
-                             capability_metadata)
-                          values
-                            (:capability_name,
-                             :capability_hostnames,
-                             :capability_default_claims,
-                             :capability_required_groups,
-                             :capability_required_attributes,
-                             :capability_group_match_method,
-                             :capability_lifetime,
-                             :capability_description,
-                             :capability_expiry_date,
-                             :capability_group_existence_check,
-                             :capability_metadata)"""
-                    session.execute(insert_query, capability)
+                    session.execute(sqlalchemy.text(CAPABILITIES_HTTP_INSERT_QUERY), capability)
             if deletes:
                 session.execute(
-                    "delete from capabilities_http where capability_name in :deletes",
-                    {"deletes": tuple(deletes)}
+                    sqlalchemy.text(CAPABILITIES_HTTP_DELETE_QUERY), {"deletes": list(deletes)}
                 )
 
         return {
@@ -1086,18 +1170,15 @@ class Db(object):
             "updates": [],
             "deletes": [],
         }
-        required_keys = ['capability_names_allowed', 'capability_grant_name',
-                         'capability_grant_hostnames', 'capability_grant_namespace',
-                         'capability_grant_http_method', 'capability_grant_rank',
-                         'capability_grant_uri_pattern', 'capability_grant_required_groups']
-        json_columns = ['capability_grant_required_attributes', 'capability_grant_metadata']
 
         grant_sets = {}
         for grant in grants:
             input_keys = grant.keys()
-            for key in required_keys:
+            for key in GRANTS_REQUIRED_KEYS:
                 if key not in input_keys:
-                    m = 'missing required key: {0} in grant, cannot do sync without error'.format(key)
+                    m = "missing required key: {0} in grant, cannot do sync without error".format(
+                        key
+                    )
                     raise Exception(m)
             namespace = grant.get("capability_grant_namespace")
             method = grant.get("capability_grant_http_method")
@@ -1108,130 +1189,68 @@ class Db(object):
                 grant_sets[namespace][method] = []
             grant_sets[namespace][method].append(name)
 
-        table_columns = list(map(lambda x: str(x).replace('capabilities_http_grants.', ''),
-                                 self.tables.capabilities_http_grants.columns))[2:]
         new_grants = []
         with session_scope(self.engine, session_identity) as session:
             for grant in grants:
-                exists_query = """select count(*) from capabilities_http_grants
-                                  where capability_grant_name = :capability_grant_name"""
-                exists = session.execute(exists_query, grant).fetchone()[0]
+                exists = session.execute(sqlalchemy.text(GRANTS_EXISTS_QUERY), grant).fetchone()[0]
                 input_keys = grant.keys()
-                for column in table_columns:
-                    if column in json_columns and column in input_keys:
+                for column in GRANTS_TABLE_COLUMNS:
+                    if column in GRANTS_JSON_COLUMNS and column in input_keys:
                         grant[column] = json.dumps(grant[column])
                     if column not in input_keys:
-                        if column in ['capability_grant_group_existence_check',
-                                      'capability_grant_quick']:
+                        if column in [
+                            "capability_grant_group_existence_check",
+                            "capability_grant_quick",
+                        ]:
                             grant[column] = True
                         else:
                             grant[column] = None
                 if static_grants:
                     grant["capability_grant_static"] = True
                 if exists:
-                    update_query = """
-                        update capabilities_http_grants set
-                            capability_names_allowed = :capability_names_allowed,
-                            capability_grant_hostnames = :capability_grant_hostnames,
-                            capability_grant_namespace = :capability_grant_namespace,
-                            capability_grant_http_method = :capability_grant_http_method,
-                            capability_grant_uri_pattern = :capability_grant_uri_pattern,
-                            capability_grant_required_groups = :capability_grant_required_groups,
-                            capability_grant_required_attributes = :capability_grant_required_attributes,
-                            capability_grant_quick = :capability_grant_quick,
-                            capability_grant_start_date = :capability_grant_start_date,
-                            capability_grant_end_date = :capability_grant_end_date,
-                            capability_grant_max_num_usages = :capability_grant_max_num_usages,
-                            capability_grant_group_existence_check = :capability_grant_group_existence_check,
-                            capability_grant_metadata = :capability_grant_metadata,
-                            capability_grant_static = :capability_grant_static
-                        where capability_grant_name = :capability_grant_name"""
-                    session.execute(update_query, grant)
+                    session.execute(sqlalchemy.text(GRANTS_UPDATE_QUERY), grant)
                     # get current grant_id from name
-                    curr_grant_id = session.execute('select capability_grant_id from capabilities_http_grants \
-                                                     where capability_grant_name = :name',
-                                                     {'name': grant['capability_grant_name']}).fetchone()[0]
-                    session.execute("select capability_grant_rank_set('{0}', '{1}')".format(
-                        curr_grant_id, grant['capability_grant_rank']))
+                    curr_grant_id = session.execute(
+                        sqlalchemy.text(GRANTS_GET_ID_FROM_NAME_QUERY),
+                        {"name": grant["capability_grant_name"]},
+                    ).fetchone()[0]
+                    session.execute(
+                        sqlalchemy.text(QUERY_CAPABILITY_GRANT_RANK_SET.format(
+                            curr_grant_id, grant["capability_grant_rank"]
+                        ))
+                    )
                     work_done["updates"].append(grant.get("capability_grant_name"))
                 else:
-                    insert_query = """
-                        insert into capabilities_http_grants
-                            (capability_names_allowed,
-                             capability_grant_name,
-                             capability_grant_hostnames,
-                             capability_grant_namespace,
-                             capability_grant_http_method,
-                             capability_grant_uri_pattern,
-                             capability_grant_required_groups,
-                             capability_grant_required_attributes,
-                             capability_grant_quick,
-                             capability_grant_start_date,
-                             capability_grant_end_date,
-                             capability_grant_max_num_usages,
-                             capability_grant_group_existence_check,
-                             capability_grant_metadata,
-                             capability_grant_static)
-                        values
-                            (:capability_names_allowed,
-                             :capability_grant_name,
-                             :capability_grant_hostnames,
-                             :capability_grant_namespace,
-                             :capability_grant_http_method,
-                             :capability_grant_uri_pattern,
-                             :capability_grant_required_groups,
-                             :capability_grant_required_attributes,
-                             :capability_grant_quick,
-                             :capability_grant_start_date,
-                             :capability_grant_end_date,
-                             :capability_grant_max_num_usages,
-                             :capability_grant_group_existence_check,
-                             :capability_grant_metadata,
-                             :capability_grant_static)"""
-                    session.execute(insert_query, grant)
+                    session.execute(sqlalchemy.text(GRANTS_INSERT_QUERY), grant)
                     # get current grant_id from name
-                    curr_grant_id = session.execute('select capability_grant_id from capabilities_http_grants \
-                                                     where capability_grant_name = :name',
-                                                     {'name': grant['capability_grant_name']}).fetchone()[0]
-                    new_grants.append({'id': curr_grant_id, 'rank' :grant['capability_grant_rank']})
+                    curr_grant_id = session.execute(
+                        sqlalchemy.text(GRANTS_GET_ID_FROM_NAME_QUERY),
+                        {"name": grant["capability_grant_name"]},
+                    ).fetchone()[0]
+                    new_grants.append(
+                        {"id": curr_grant_id, "rank": grant["capability_grant_rank"]}
+                    )
                     work_done["inserts"].append(grant.get("capability_grant_name"))
 
         # set the rank values
         with session_scope(self.engine, session_identity) as session:
             for grant in new_grants:
-                session.execute("select capability_grant_rank_set('{0}', '{1}')".format(
-                    grant['id'], grant['rank']))
+                session.execute(
+                    sqlalchemy.text(QUERY_CAPABILITY_GRANT_RANK_SET.format(grant["id"], grant["rank"]))
+                )
 
-        def with_all_http_methods(grant_set: dict) -> list:
-            """
-            If incoming static grants have removed all grants
-            associated with an HTTP method, then we have to
-            make sure that we search for that method in the DB
-            when identifying which grants to delete.
-
-            """
-            methods = ["OPTIONS", "GET", "PUT", "POST", "PATCH", "DELETE"]
-            grant_methods = grant_set.keys()
-            for method in methods:
-                if method not in grant_methods:
-                    grant_set[method] = []
-            return grant_set
-
-        if static_grants: # clean up old grants
+        if static_grants:  # clean up old grants
             for namespace, grant_set in grant_sets.items():
                 for method, incoming_names in with_all_http_methods(grant_set).items():
                     existing_names = []
                     # fetch the relevant set from the DB
                     with session_scope(self.engine, session_identity) as session:
                         results = session.execute(
-                            "select capability_grant_name from capabilities_http_grants \
-                             where capability_grant_namespace = :namespace \
-                             and capability_grant_http_method = :method \
-                             and capability_grant_static = 't'",
+                            sqlalchemy.text(GRANTS_FIND_EXISTING_QUERY),
                             {
                                 "namespace": namespace,
                                 "method": method,
-                            }
+                            },
                         )
                         for result in results:
                             existing_names.append(result[0])
@@ -1239,11 +1258,13 @@ class Db(object):
                         if deletes:
                             for name in deletes:
                                 grant_id = session.execute(
-                                    'select capability_grant_id from capabilities_http_grants \
-                                     where capability_grant_name = :name',
-                                    {"name": name}
+                                    sqlalchemy.text("select capability_grant_id from capabilities_http_grants \
+                                     where capability_grant_name = :name"),
+                                    {"name": name},
                                 ).fetchone()[0]
-                                self.capability_grant_delete(grant_id, session_identity, session)
+                                self.capability_grant_delete(
+                                    grant_id, session_identity, session
+                                )
                                 work_done["deletes"].append(name)
         return work_done
 
@@ -1267,8 +1288,11 @@ class Db(object):
         boolean
 
         """
-        q = "select capability_grant_group_add('{0}', '{1}')".format(grant_reference, group_name)
-        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+        return self.exec_sql(
+            QUERY_CAPABILITY_GRANT_GROUP_ADD.format(grant_reference, group_name),
+            session_identity=session_identity,
+            session=session,
+        )[0][0]
 
     def capabilities_http_grants_group_remove(
         self,
@@ -1290,5 +1314,8 @@ class Db(object):
         boolean
 
         """
-        q = "select capability_grant_group_remove('{0}', '{1}')".format(grant_reference, group_name)
-        return self.exec_sql(q, session_identity=session_identity, session=session)[0][0]
+        return self.exec_sql(
+            QUERY_CAPABILITY_GRANT_GROUP_REMOVE.format(grant_reference, group_name),
+            session_identity=session_identity,
+            session=session,
+        )[0][0]
