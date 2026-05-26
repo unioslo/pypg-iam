@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pypg-iam"
-version = "0.7.8"
+version = "0.8.0"
 description = "Python package for interacting with pg-iam"
 authors = [
     "Leon du Toit <l.c.d.toit@usit.uio.no>",
@@ -12,9 +12,13 @@ repository = "https://github.com/unioslo/pypg-iam"
 packages = [{include = "iam"}]
 
 [tool.poetry.dependencies]
-python = "^3.9"
-sqlalchemy = ">=1.4.22,<2"
-psycopg2 = "^2.8.3"
+python = ">=3.9"
+sqlalchemy = ">=1.4.22"
+psycopg2 = ">=2.8.3"
+asyncpg = {version = ">=0.27.0", optional = true}
+
+[tool.poetry.extras]
+async = ["asyncpg"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.1.3"
