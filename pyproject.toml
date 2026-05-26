@@ -1,32 +1,47 @@
-[tool.poetry]
+[project]
 name = "pypg-iam"
 version = "0.8.0"
 description = "Python package for interacting with pg-iam"
 authors = [
-    "Leon du Toit <l.c.d.toit@usit.uio.no>",
-    "Milen Kouylekov <milen.kouylekov@usit.uio.no>",
+    {name = "Leon du Toit", email = "l.c.d.toit@usit.uio.no"},
+    {name = "Milen Kouylekov", email = "milen.kouylekov@usit.uio.no"},
+    {name = "Eirik Haatveit", email = "haatveit@uio.no"}
 ]
 license = "BSD-3-Clause"
 readme = "README.md"
-repository = "https://github.com/unioslo/pypg-iam"
-packages = [{include = "iam"}]
+requires-python = ">=3.9"
+dependencies = [
+    "sqlalchemy[asyncio] >= 2.0.0",
+    "psycopg2 >= 2.8.3",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.9"
-sqlalchemy = ">=1.4.22"
-psycopg2 = ">=2.8.3"
-psycopg = {version = ">=3.1.0", optional = true}
-asyncpg = {version = ">=0.27.0", optional = true}
+[project.urls]
+source = "https://github.com/unioslo/pypg-iam"
 
-[tool.poetry.extras]
-async = ["psycopg"]
-async-asyncpg = ["asyncpg"]
+[project.optional-dependencies]
+async = [
+    "asyncpg",
+    "psycopg >= 3.0.7",
+]
+async-asyncpg = [
+    "asyncpg",
+]
+async-psycopg = [
+    "psycopg >= 3.0.7",
+]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^7.1.3"
-debugpy = "^1.6.3"
-debugpy-run = "^1.4"
+[dependency-groups]
+dev = [
+    "pytest >= 7.1.3",
+    "pytest-asyncio",
+    "debugpy >= 1.6.3",
+    "debugpy-run >= 1.4",
+]
+
+[tool.uv.build-backend]
+module-name = "iam"
+module-root = ""
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["uv_build>=0.11.16,<0.12"]
+build-backend = "uv_build"
