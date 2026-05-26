@@ -66,13 +66,116 @@ from ._util import (
 )
 
 
-def async_iam_engine(dsn: str, require_ssl: bool = False) -> sqlalchemy.ext.asyncio.AsyncEngine:
-    # Convert postgresql:// to postgresql+asyncpg:// for async support
+def async_iam_engine(
+    dsn: str, require_ssl: bool = False, driver: str = "auto"
+) -> sqlalchemy.ext.asyncio.AsyncEngine:
+    """
+    Create an async SQLAlchemy engine for pg-iam.
+
+    Parameters
+    ----------
+    dsn : str
+        PostgreSQL connection string
+    require_ssl : bool, default False
+        Whether to require SSL connection
+    driver : str, default 'auto'
+        Async driver: 'auto', 'psycopg', or 'asyncpg'
+        'auto' tries psycopg first, then asyncpg
+
+    Raises
+    ------
+    ImportError : If no drivers available (auto) or requested driver not installed
+    ValueError : If driver parameter is invalid
+    """
+    # Validate driver parameter
+    driver = driver.lower()
+    if driver not in ["auto", "asyncpg", "psycopg"]:
+        raise ValueError(
+            f"driver must be 'auto', 'asyncpg', or 'psycopg', got: {driver}"
+        )
+
+    # Determine which driver to use
+    if driver == "auto":
+        selected_driver = _detect_available_driver()
+        if not selected_driver:
+            raise ImportError(
+                "No async PostgreSQL drivers available. Install one of:\n"
+                "  pip install pypg-iam[async-psycopg]  (psycopg3, recommended)\n"
+                "  pip install pypg-iam[async-asyncpg] (asyncpg)"
+            )
+    else:
+        # Verify the explicitly requested driver is available
+        selected_driver = driver
+        if driver == "asyncpg":
+            try:
+                import asyncpg
+            except ImportError:
+                raise ImportError(
+                    "asyncpg is not installed. Install it with:\n"
+                    "  pip install pypg-iam[async-asyncpg]"
+                )
+        else:  # psycopg
+            try:
+                import psycopg
+
+                if not hasattr(psycopg, "AsyncConnection"):
+                    raise ImportError("psycopg is installed but is not version 3.x")
+            except ImportError:
+                raise ImportError(
+                    "psycopg (version 3.x) is not installed. Install it with:\n"
+                    "  pip install pypg-iam[async-psycopg]  or pip install 'psycopg>=3.0.7'"
+                )
+
+    # Build dialect-specific DSN
     if dsn.startswith("postgresql://"):
-        dsn = dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
-    connect_args = {} if not require_ssl else {"ssl": "require"}
-    engine = create_async_engine(dsn, connect_args=connect_args, pool_size=10, max_overflow=0)
-    return engine
+        if selected_driver == "asyncpg":
+            dsn = dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
+        else:  # psycopg
+            dsn = dsn.replace("postgresql://", "postgresql+psycopg://", 1)
+
+    # Get driver-specific connection args
+    connect_args = _get_connect_args(selected_driver, require_ssl)
+
+    return create_async_engine(
+        dsn, connect_args=connect_args, pool_size=10, max_overflow=0
+    )
+
+
+def _detect_available_driver() -> str | None:
+    """
+    Detect first available async driver in priority order.
+
+    Returns 'psycopg' if psycopg3 is available,
+    'asyncpg' if only asyncpg is available,
+    None if neither is available.
+
+    Priority order: psycopg (official) → asyncpg (alternative)
+    """
+    # Try psycopg first (official PostgreSQL driver)
+    try:
+        import psycopg
+
+        if hasattr(psycopg, "AsyncConnection"):  # Verify psycopg3
+            return "psycopg"
+    except ImportError:
+        pass
+
+    # Try asyncpg as fallback
+    try:
+        import asyncpg
+
+        return "asyncpg"
+    except ImportError:
+        pass
+
+    return None
+
+
+def _get_connect_args(driver: str, require_ssl: bool) -> dict:
+    """Get driver-specific SSL connection arguments."""
+    if not require_ssl:
+        return {}
+    return {"ssl": "require"} if driver == "asyncpg" else {"sslmode": "require"}
 
 
 @asynccontextmanager
@@ -81,7 +184,9 @@ async def async_session_scope(
     session_identity: Optional[str] = None,
     session: Optional[AsyncSession] = None,
 ) -> AsyncContextManager[AsyncSession]:
-    SessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    SessionLocal = async_sessionmaker(
+        engine, class_=AsyncSession, expire_on_commit=False
+    )
     session = SessionLocal()
     try:
         if session_identity:
@@ -170,7 +275,9 @@ class AsyncDb(object):
 
     """
 
-    def __init__(self, engine: sqlalchemy.ext.asyncio.AsyncEngine, config: dict = {}) -> None:
+    def __init__(
+        self, engine: sqlalchemy.ext.asyncio.AsyncEngine, config: dict = {}
+    ) -> None:
         super(AsyncDb, self).__init__()
         if not engine:
             engine = async_iam_engine(dsn_from_config(config))
@@ -212,13 +319,15 @@ class AsyncDb(object):
         res, out = True, None
         if session:
             result = await session.execute(sqlalchemy.text(sql), params)
-            columns = list(result.keys()) if fetch and hasattr(result, 'keys') else None
+            columns = list(result.keys()) if fetch and hasattr(result, "keys") else None
             if fetch:
                 res = result.fetchall()
         else:
             async with async_session_scope(self.engine, session_identity) as session:
                 result = await session.execute(sqlalchemy.text(sql), params)
-                columns = list(result.keys()) if fetch and hasattr(result, 'keys') else None
+                columns = (
+                    list(result.keys()) if fetch and hasattr(result, "keys") else None
+                )
                 if fetch:
                     res = result.fetchall()
 
@@ -1206,9 +1315,9 @@ class AsyncDb(object):
         new_grants = []
         async with async_session_scope(self.engine, session_identity) as session:
             for grant in grants:
-                exists = (await self.exec_sql(GRANTS_EXISTS_QUERY, grant, session=session))[
-                    0
-                ][0]
+                exists = (
+                    await self.exec_sql(GRANTS_EXISTS_QUERY, grant, session=session)
+                )[0][0]
                 input_keys = grant.keys()
                 for column in GRANTS_TABLE_COLUMNS:
                     if column in GRANTS_JSON_COLUMNS and column in input_keys:
@@ -1269,7 +1378,9 @@ class AsyncDb(object):
             for namespace, grant_set in grant_sets.items():
                 for method, incoming_names in with_all_http_methods(grant_set).items():
                     existing_names = []
-                    async with async_session_scope(self.engine, session_identity) as session:
+                    async with async_session_scope(
+                        self.engine, session_identity
+                    ) as session:
                         results = await self.exec_sql(
                             GRANTS_FIND_EXISTING_QUERY,
                             {
