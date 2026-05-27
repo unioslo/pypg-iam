@@ -2,14 +2,13 @@
 Async tests for pypg-iam AsyncDb class.
 
 Tests both psycopg3 and asyncpg drivers to ensure compatibility.
-Requires pytest-asyncio: pip install pytest-asyncio
+Requires pytest-asyncio and pytest-postgresql.
 """
 
-import os
 import pytest
 import pytest_asyncio
 
-from .async_pgiam import AsyncDb, async_iam_engine, _detect_available_driver
+from iam.async_pgiam import async_iam_engine, _detect_available_driver
 
 
 # Check which drivers are available
@@ -30,59 +29,36 @@ except ImportError:
     pass
 
 
-@pytest.fixture(params=AVAILABLE_DRIVERS)
-def driver(request):
-    """Parametrized fixture to run tests with all available async drivers."""
-    return request.param
-
-
-@pytest_asyncio.fixture
-async def async_db(driver):
-    """
-    Create an AsyncDb instance with the specified driver.
-
-    Yields the db instance, then cleans up the engine.
-    """
-    user = os.environ["PYPGIAM_USER"]
-    pw = os.environ["PYPGIAM_PW"]
-    host = os.environ["PYPGIAM_HOST"]
-    db_name = os.environ["PYPGIAM_DB"]
-
-    dsn = f"postgresql://{user}:{pw}@{host}:5432/{db_name}"
-    engine = async_iam_engine(dsn, driver=driver)
-    db = AsyncDb(engine)
-
-    yield db
-
-    # Cleanup
-    await engine.dispose()
-
-
 class TestAsyncPgIam:
     """Async tests for pypg-iam that run with both psycopg and asyncpg drivers."""
 
-    async def grant_id_from_name(self, db: AsyncDb, grant_name: str) -> str:
+    @pytest_asyncio.fixture(autouse=True)
+    async def setup_db(self, async_db):
+        """Assign async_db fixture to self.db for all test methods."""
+        self.db = async_db
+
+    async def grant_id_from_name(self, grant_name: str) -> str:
         """Helper to get grant ID from grant name."""
-        out = await db.exec_sql(
+        out = await self.db.exec_sql(
             "select capability_grant_id from capabilities_http_grants "
             "where capability_grant_name = :gn",
             {"gn": grant_name},
         )
         return str(out[0][0]) if out else None
 
-    async def cleanup(self, db: AsyncDb, pid: str, grants: list, groups: dict) -> None:
+    async def cleanup(self, pid: str, grants: list, groups: dict) -> None:
         """Helper to cleanup test data."""
         for grant in grants:
-            grant_id = await self.grant_id_from_name(db, grant)
+            grant_id = await self.grant_id_from_name(grant)
             if grant_id:
-                await db.capability_grant_delete(grant_id)
+                await self.db.capability_grant_delete(grant_id)
 
-        await db.exec_sql(
+        await self.db.exec_sql(
             "delete from persons where person_id = :pid",
             {"pid": pid},
             fetch=False,
         )
-        await db.exec_sql(
+        await self.db.exec_sql(
             "delete from groups where group_name in (:g1, :g2, :g3, :g4)",
             {
                 "g1": groups.get("g1"),
@@ -92,14 +68,14 @@ class TestAsyncPgIam:
             },
             fetch=False,
         )
-        await db.exec_sql(
+        await self.db.exec_sql(
             "delete from capabilities_http where capability_name in (:n1, :n2, :n3)",
             {"n1": "test1", "n2": "test2", "n3": "test3"},
             fetch=False,
         )
 
     @pytest.mark.asyncio
-    async def test_async_pgiam(self, async_db: AsyncDb, driver: str) -> None:
+    async def test_async_pgiam(self, driver: str) -> None:
         """
         Comprehensive async test covering all major AsyncDb operations.
 
@@ -134,19 +110,19 @@ class TestAsyncPgIam:
 
         try:
             # Create a person, get the person ID
-            await async_db.exec_sql(
+            await self.db.exec_sql(
                 "insert into persons(full_name) values (:full_name)",
                 {"full_name": _in_full_name},
                 fetch=False,
             )
-            result = await async_db.exec_sql(
+            result = await self.db.exec_sql(
                 "select person_id from persons where full_name = :full_name",
                 {"full_name": _in_full_name},
             )
             pid = result[0][0]
 
             # Create a user
-            await async_db.exec_sql(
+            await self.db.exec_sql(
                 "insert into users(person_id, user_name) values (:pid, :user_name)",
                 {"pid": pid, "user_name": _in_uname},
                 fetch=False,
@@ -154,46 +130,46 @@ class TestAsyncPgIam:
 
             # Create groups
             for _, group in groups.items():
-                await async_db.exec_sql(
+                await self.db.exec_sql(
                     "insert into groups(group_name, group_class, group_type) values (:name, :class, :type)",
                     {"name": group, "class": "secondary", "type": "generic"},
                     fetch=False,
                 )
 
             # Add members
-            result1 = await async_db.group_member_add(_in_group1, _in_group2)
+            result1 = await self.db.group_member_add(_in_group1, _in_group2)
             print(f"Add {_in_group2} to {_in_group1}: {result1}")
 
-            result2 = await async_db.group_member_add(_in_group1, _in_group3)
+            result2 = await self.db.group_member_add(_in_group1, _in_group3)
             print(f"Add {_in_group3} to {_in_group1}: {result2}")
 
-            result3 = await async_db.group_member_add(_in_group2, _in_uname)
+            result3 = await self.db.group_member_add(_in_group2, _in_uname)
             print(f"Add {_in_uname} to {_in_group2}: {result3}")
 
             # Add moderators
-            await async_db.exec_sql(
+            await self.db.exec_sql(
                 "insert into group_moderators(group_name, group_moderator_name) values (:group, :mod)",
                 {"group": _in_group1, "mod": _in_group4},
                 fetch=False,
             )
 
             # Informational queries
-            person_groups = await async_db.person_groups(pid)
+            person_groups = await self.db.person_groups(pid)
             print(f"Person groups: {person_groups}")
 
-            user_groups = await async_db.user_groups(_in_uname)
+            user_groups = await self.db.user_groups(_in_uname)
             print(f"User groups: {user_groups}")
 
-            group_members = await async_db.group_members(_in_group1)
+            group_members = await self.db.group_members(_in_group1)
             print(f"Group members: {group_members}")
 
-            group_mods = await async_db.group_moderators(_in_group1)
+            group_mods = await self.db.group_moderators(_in_group1)
             print(f"Group moderators: {group_mods}")
 
-            remove_result = await async_db.group_member_remove(_in_group1, _in_group3)
+            remove_result = await self.db.group_member_remove(_in_group1, _in_group3)
             print(f"Remove {_in_group3} from {_in_group1}: {remove_result}")
 
-            group_members_after = await async_db.group_members(_in_group1)
+            group_members_after = await self.db.group_members(_in_group1)
             print(f"Group members after removal: {group_members_after}")
 
             # Capabilities
@@ -213,10 +189,10 @@ class TestAsyncPgIam:
                     "capability_hostnames": [],
                 },
             ]
-            caps_sync1 = await async_db.capabilities_http_sync(names1)
+            caps_sync1 = await self.db.capabilities_http_sync(names1)
             print(f"Capabilities sync 1: {caps_sync1}")
 
-            caps1 = await async_db.exec_sql(
+            caps1 = await self.db.exec_sql(
                 "select * from capabilities_http where capability_name in (:n1, :n2)",
                 {"n1": "test1", "n2": "test2"},
             )
@@ -257,10 +233,10 @@ class TestAsyncPgIam:
                     "capability_hostnames": [],
                 },
             ]
-            caps_sync2 = await async_db.capabilities_http_sync(names2)
+            caps_sync2 = await self.db.capabilities_http_sync(names2)
             print(f"Capabilities sync 2: {caps_sync2}")
 
-            caps2 = await async_db.exec_sql(
+            caps2 = await self.db.exec_sql(
                 "select * from capabilities_http where capability_name in (:n1, :n2, :n3)",
                 {"n1": "test1", "n2": "test2", "n3": "test3"},
             )
@@ -294,12 +270,12 @@ class TestAsyncPgIam:
                 },
             ]
 
-            grants_sync1 = await async_db.capabilities_http_grants_sync(
+            grants_sync1 = await self.db.capabilities_http_grants_sync(
                 grants1, static_grants=True
             )
             print(f"Grants sync 1: {grants_sync1}")
 
-            gs1 = await async_db.exec_sql(
+            gs1 = await self.db.exec_sql(
                 "select * from capabilities_http_grants where capability_grant_name in (:gn1, :gn2)",
                 {"gn1": grname1, "gn2": grname2},
             )
@@ -320,7 +296,7 @@ class TestAsyncPgIam:
         finally:
             # Cleanup
             if pid:
-                await self.cleanup(async_db, pid, grants, groups)
+                await self.cleanup(pid, grants, groups)
 
 
 @pytest.mark.asyncio
@@ -346,14 +322,9 @@ async def test_driver_detection():
 
 
 @pytest.mark.asyncio
-async def test_explicit_driver_selection():
+async def test_explicit_driver_selection(postgresql_proc, pgiam_db):
     """Test that explicit driver selection works for all available drivers."""
-    user = os.environ["PYPGIAM_USER"]
-    pw = os.environ["PYPGIAM_PW"]
-    host = os.environ["PYPGIAM_HOST"]
-    db_name = os.environ["PYPGIAM_DB"]
-
-    dsn = f"postgresql://{user}:{pw}@{host}:5432/{db_name}"
+    dsn = f"postgresql://{postgresql_proc.user}@{postgresql_proc.host}:{postgresql_proc.port}/{pgiam_db.info.dbname}"
 
     for driver in AVAILABLE_DRIVERS:
         print(f"Testing explicit {driver} selection...")
@@ -390,7 +361,7 @@ async def test_psycopg_ssl_params():
     from iam.async_pgiam import _get_connect_args
 
     args = _get_connect_args("psycopg", require_ssl=True)
-    assert args == {"sslmode": "require"}, "psycopg should use sslmode parameter"
+    assert args == {"sslmode": "verify-full"}, "psycopg should use sslmode parameter"
 
     args_no_ssl = _get_connect_args("psycopg", require_ssl=False)
     assert args_no_ssl == {}, "No SSL args when require_ssl=False"
@@ -403,7 +374,7 @@ async def test_asyncpg_ssl_params():
     from iam.async_pgiam import _get_connect_args
 
     args = _get_connect_args("asyncpg", require_ssl=True)
-    assert args == {"ssl": "require"}, "asyncpg should use ssl parameter"
+    assert args == {"ssl": True}, "asyncpg should use ssl parameter"
 
     args_no_ssl = _get_connect_args("asyncpg", require_ssl=False)
     assert args_no_ssl == {}, "No SSL args when require_ssl=False"

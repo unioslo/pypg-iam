@@ -104,34 +104,58 @@ default), pypg-iam will use psycopg 3 if available, otherwise asyncpg. If you
 explicitly request a driver that isn't installed, you'll get an ImportError with
 installation instructions.
 
-## Running tests
+## Tests
 
-### Synchronous tests
+Tests use `pytest-postgresql` to automatically set up a temporary PostgreSQL database with pg-iam schemas. No manual database setup required!
 
-```bash
-poetry install
+### Prerequisites
 
-# set postgres environment variables for pg-iam db access
-export PYPGIAM_USER=""
-export PYPGIAM_PW=""
-export PYPGIAM_HOST=""
-export PYPGIAM_DB=""
+The test suite automatically:
 
-# run sync tests
-poetry run pytest iam/tests.py
-```
+* Clones the [pg-iam](https://github.com/unioslo/pg-iam) repository to get schema files
+* Starts a temporary PostgreSQL server
+* Installs pg-iam schemas
+* Runs tests
+* Cleans up everything
 
-### Async tests
+You just need PostgreSQL binaries installed on your system (`psql`, `initdb`, etc.).
 
-Async tests require pytest-asyncio and at least one async driver:
+### Running tests
 
 ```bash
-# Install test dependencies and async driver(s)
-poetry install --all-extras
+# Install all dependencies including test and async extras
+uv sync --all-extras
 
-# Run async tests (tests both drivers if both are installed)
-poetry run pytest iam/tests_async.py -v
+# Run all tests (sync + async with both psycopg and asyncpg drivers)
+uv run pytest -v
+
+# Run only sync tests
+uv run pytest tests/test_sync.py -v
+
+# Run only async tests
+uv run pytest tests/test_async.py -v
+
+# Run async tests with a specific driver
+uv run pytest tests/test_async.py::TestAsyncPgIam::test_async_pgiam[psycopg] -v
+uv run pytest tests/test_async.py::TestAsyncPgIam::test_async_pgiam[asyncpg] -v
 ```
+
+### Testing against an existing database (optional)
+
+The test fixtures automatically detect and use an existing pg-iam database if you set these environment variables:
+
+```bash
+# Set postgres environment variables
+export PYPGIAM_USER="your_user"
+export PYPGIAM_PW="your_password"  # Optional, defaults to empty string
+export PYPGIAM_HOST="localhost"
+export PYPGIAM_DB="your_db"
+
+# Run tests - they'll use your database instead of creating a temporary one
+uv run pytest -v
+```
+
+**Note:** When using a manual database, the tests expect pg-iam schemas to already be installed. The automated schema installation only happens with pytest-postgresql's temporary databases.
 
 ## LICENSE
 
