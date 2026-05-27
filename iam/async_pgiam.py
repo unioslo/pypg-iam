@@ -171,11 +171,11 @@ def _detect_available_driver() -> str | None:
     return None
 
 
-def _get_connect_args(driver: str, require_ssl: bool) -> dict:
+def _get_connect_args(driver: str, require_ssl: bool) -> dict[str, str | bool | int]:
     """Get driver-specific SSL connection arguments."""
     if not require_ssl:
         return {}
-    return {"ssl": "require"} if driver == "asyncpg" else {"sslmode": "require"}
+    return {"ssl": True} if driver == "asyncpg" else {"sslmode": "verify-full"}
 
 
 @asynccontextmanager
